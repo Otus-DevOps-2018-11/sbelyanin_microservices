@@ -1,0 +1,36 @@
+{
+	"variables": {
+	  "project_id": null,
+	  "source_image_family": null,
+	  "zone": "europe-west1-b",
+	  "machine_type": "g1-small"
+  	 },
+	"builders": [
+	  {
+	   "type": "googlecompute",
+	   "project_id": "{{ user `project_id` }}",
+	   "image_name": "docker-host-{{timestamp}}",
+	   "image_family": "docker-host-base",
+	   "image_description": "for-docker-host",
+	   "image_labels": {
+	     "create_date": "{{timestamp}}",
+	     "create_by": "sergey-belyanin",
+	     "based_on": "{{ user `source_image_family` }}",
+	     "add_packages": "docker"
+	     },
+	   "source_image_family": "{{ user `source_image_family` }}",
+	   "zone": "{{ user `zone` }}",
+	   "network": "default",
+	   "ssh_username": "appuser",
+	   "machine_type": "{{ user `machine_type` }}",
+	   "disk_size": "10",
+	   "disk_type": "pd-standard"
+	  }
+	],
+	"provisioners": [
+	  {
+	   "type": "ansible",
+	   "playbook_file": "../ansible/docker.yml"
+	  }
+	]
+}
