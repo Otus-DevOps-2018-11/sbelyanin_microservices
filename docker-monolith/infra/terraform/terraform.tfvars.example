@@ -1,0 +1,6 @@
+project = "docker-2011"
+public_key_path = "~/.ssh/appuser.pub"
+disk_image = "reddit-base"
+zone = "b"
+node_count = 3
+

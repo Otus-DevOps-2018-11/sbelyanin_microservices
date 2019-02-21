@@ -1,0 +1,14 @@
+---
+- name: Pull images and restart reddit app on Docker-ce
+  hosts: all
+  become: true
+  tasks:
+  - name: Pull reddit docker images.
+    command: docker pull sbelyanin/otus-reddit:1.0
+
+  - name: Remove found the reddit app containers
+    shell: 'docker rm -f reddit'
+    ignore_errors: yes
+
+  - name: Start reddit app container
+    command: docker run --restart always --name reddit -d -p 9292:9292 sbelyanin/otus-reddit:1.0
