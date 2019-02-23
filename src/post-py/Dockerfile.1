@@ -1,0 +1,22 @@
+FROM python:3.6.0-alpine as base
+FROM BASE as builder
+
+RUN apk --no-cache add gcc musl-dev
+
+WORKDIR /install
+COPY requirements.txt /requirements.txt
+RUN pip install --upgrade pip && pip install --install-option="--prefix=/install" -r /requirements.txt
+
+
+FROM base
+
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+ADD . /app
+
+
+ENV POST_DATABASE_HOST post_db
+ENV POST_DATABASE posts
+
+ENTRYPOINT ["python3", "post_app.py"]
