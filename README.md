@@ -9,7 +9,7 @@ sbelyanin microservices repository
  ```bash
  post-py - сервис отвечающий за написание постов
  comment - сервис отвечающий за написание комментариев
- ui - веб-интерфейс, работающий с другими сервисам
+ ui - веб-интерфейс, работающий с другими сервисами
  mongodb - БД приложения
  ```
  - Созданы 3 докер файла, описывающие создание сервисов:
@@ -98,7 +98,7 @@ docker build -t sbelyanin/ui:2.0 ./ui
 
 Запуск:
 docker run -d --network=reddit --network-alias=post_db --network-alias=comment_db -v reddit_db:/data/db  mongo:latest
-docker run -d --network=reddit --network-alias=p- ost sbelyanin/post:1.0
+docker run -d --network=reddit --network-alias=post sbelyanin/post:1.0
 docker run -d --network=reddit --network-alias=comment sbelyanin/comment:1.0
 docker run -d --network=reddit -p 9292:9292 sbelyanin/ui:2.0
 ```
