@@ -1,0 +1,24 @@
+version: '3.3'
+
+services:
+  post:
+   volumes:
+     - /srv/reddit/post-py/:/app/:rw
+
+  ui:
+   entrypoint:
+     - puma
+     - -w 2
+     - --debug
+   volumes:
+      - /srv/reddit/ui/:/app/:rw
+
+  comment:
+   entrypoint:
+     - puma
+     - w 2
+     - --debug
+   volumes:
+     - /srv/reddit/comment/:/app/:rw
+
+

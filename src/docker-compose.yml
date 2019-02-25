@@ -1,0 +1,57 @@
+version: '3.3'
+
+
+services:
+  post_db:
+    image: mongo:${MONGODB_V}
+    volumes:
+      - post_db:/data/db
+    networks:
+      back_net:
+       aliases:
+        - post_db
+        - comment_db
+
+  ui:
+    build: ./ui
+    image: ${USERNAME}/ui:${UI_V}
+    hostname: reddit-app
+    ports:
+      - ${HOST_PORT}:9292
+    networks:
+      - front_net
+
+  post:
+    build: ./post-py
+    image: ${USERNAME}/post:${POST_V}
+    networks:
+      back_net:
+       aliases:
+        - post
+      front_net:
+       aliases:
+        - post
+
+  comment:
+    build: ./comment
+    image: ${USERNAME}/comment:${COMMENT_V}
+    networks:
+      front_net:
+        aliases:
+          - comment
+      back_net:
+        aliases:
+          - comment
+
+volumes:
+  post_db:
+
+networks:
+  front_net:
+    ipam:
+      config:
+        - subnet: 10.0.3.0/24
+  back_net:
+    ipam:
+      config:
+        - subnet: 10.0.4.0/24

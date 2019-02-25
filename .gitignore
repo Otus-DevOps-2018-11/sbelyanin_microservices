@@ -1,3 +1,4 @@
+.env
 src/utils/
 variables.json
 *.tfstate
