@@ -1,0 +1,39 @@
+version: '2'
+
+networks:
+    gitlab-net:
+      external:
+        name: gitlab-net
+
+services:
+ gitlab:
+  image: gitlab/gitlab-ce:latest
+  container_name: gitlab
+  hostname: 'gitlab'
+  restart: always
+  mem_limit: 2000m
+  environment:
+    GITLAB_OMNIBUS_CONFIG: | 
+      external_url 'http://{{ gitlab_ext_ip }}'
+  volumes:
+    - '/srv/gitlab/config:/etc/gitlab'
+    - '/srv/gitlab/logs:/var/log/gitlab'
+    - '/srv/gitlab/data:/var/opt/gitlab'
+  networks:
+    - gitlab-net
+  expose:
+    - 80
+    - 443
+  ports:
+    - '80:80'
+    - '443:443'
+    - '2222:22'
+
+ runner:
+  image: gitlab/gitlab-runner:latest
+  restart: always
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  networks:
+    - gitlab-net
+

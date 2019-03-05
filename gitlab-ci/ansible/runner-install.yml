@@ -1,0 +1,48 @@
+---
+- name: Install runners and connect to gitlab
+  hosts: all
+  vars:
+    work_user: appuser
+    docker_group: docker
+    gitlab_dir: /srv/gitlab
+    gitlab_ext_ip: "{{ hostvars['docker-gitlab']['gce_public_ip'] }}"
+    gitlab_runners: 2 
+  tasks:
+
+  - name: Get gitlab token for runner
+    shell: "docker exec -ti gitlab gitlab-rails runner -e production \"puts Gitlab::CurrentSettings.current_application_settings.runners_registration_token\""
+    register: gitlab_token
+
+  - name: Show token
+    debug: 
+      var: gitlab_token.stdout 
+
+  - name: Settings env
+    template:
+      src: template/.env.j2
+      dest: "{{ gitlab_dir }}/.env"
+      owner: "{{ work_user }}"
+      group: "{{ docker_group }}" 
+
+  - name: Run gitlab-runners from docker-compose.yml
+    docker_service:  
+     project_src: "{{ gitlab_dir }}"
+     services: runner
+     scale: 
+       runner: "{{ gitlab_runners }}"
+     restarted: yes
+
+  - name: Get container id with runner 
+    shell: "docker ps -q -f \"name=gl_runner\""
+    register: "runn_id"
+
+  - name: Show ID
+    debug:
+      var: runn_id.stdout
+
+  - name: Register runners into gitlab
+    shell: |
+       docker exec -ti {{ item }} bash -c 'grep "docker-runner" /etc/gitlab-runner/config.toml > /dev/null || gitlab-runner register --non-interactive --registration-token "{{ gitlab_token.stdout }}" --executor "docker" --docker-image alpine:3 --url "http://gitlab/" --description "docker-runner" --run-untagged --locked "false"'
+    with_items: "{{ runn_id.stdout_lines }}"
+
+

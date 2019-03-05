@@ -1,0 +1,7 @@
+---
+- import_playbook: host-install.yml
+- import_playbook: docker-install.yml
+- import_playbook: gitlab-install.yml
+#start after basic gitlab setup
+#- import_playbook: runner-install.yml
+

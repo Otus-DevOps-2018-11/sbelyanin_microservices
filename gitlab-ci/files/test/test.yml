@@ -1,0 +1,13 @@
+---
+- name: show host var
+  hosts: all
+#  vars:
+#    - ext_ip: "{{ hostvars['gitlab-host'] }}"
+  tasks:
+#    - name: show
+#      debug:
+#        var: hostvars[inventory_hostname] 
+
+    - name: show gce public ip
+      debug:
+        var: hostvars['docker-gitlab']['gce_public_ip']     
