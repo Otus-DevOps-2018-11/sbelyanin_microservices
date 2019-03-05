@@ -9,8 +9,8 @@ stages:
 
 variables:
   DATABASE_URL: 'mongodb://mongo/user_posts'
-  DOCKER_HOST: tcp://docker:2375/
-  DOCKER_DRIVER: overlay2
+#  DOCKER_HOST: tcp://docker:2375/
+#  DOCKER_DRIVER: overlay2
 
 build_job:
   stage: build
@@ -20,8 +20,8 @@ build_job:
 build_reddit:
   stage: build
   image: docker:stable
-  services:
-    - docker:dind
+#  services:
+#    - docker:dind
   script:
     - docker info
     - cd docker-monolith
