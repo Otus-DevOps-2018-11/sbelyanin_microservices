@@ -11,6 +11,8 @@ variables:
   DATABASE_URL: 'mongodb://mongo/user_posts'
 
 before_script:
+  - docker info
+  - docker-compose -v
   - cd reddit
   - bundle install
 
@@ -18,6 +20,12 @@ build_job:
   stage: build
   script:
     - echo 'Building'
+
+build_reddit:
+  stage: buid
+  script:
+    - cd docker-monolith
+    - docker build -t reddit:latest .
 
 test_unit_job:
   stage: test   
