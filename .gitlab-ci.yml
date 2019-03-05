@@ -23,6 +23,7 @@ build_job:
 
 build_reddit:
   stage: build
+  image: docker:stable
   script:
     - cd docker-monolith
     - docker build -t reddit:latest .
