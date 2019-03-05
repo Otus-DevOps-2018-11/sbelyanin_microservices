@@ -24,7 +24,6 @@ build_reddit:
     - docker:dind
   script:
     - docker info
-    - docker-compose -v
     - cd docker-monolith
     - docker build -t reddit:latest .
 
