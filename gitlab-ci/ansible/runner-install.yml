@@ -42,7 +42,7 @@
 
   - name: Register runners into gitlab
     shell: |
-       docker exec -ti {{ item }} bash -c 'grep "docker-runner" /etc/gitlab-runner/config.toml > /dev/null || gitlab-runner register --non-interactive --registration-token "{{ gitlab_token.stdout }}" --executor "docker" --docker-image alpine:3 --docker-privileged --url "http://gitlab/" --description "docker-runner" --run-untagged --locked "false"'
+       docker exec -ti {{ item }} bash -c 'grep "docker-runner" /etc/gitlab-runner/config.toml > /dev/null || gitlab-runner register --non-interactive --registration-token "{{ gitlab_token.stdout }}" --executor "docker" --docker-image alpine:3 --docker-volumes /var/run/docker.sock:/var/run/docker.sock --docker-privileged --url "http://gitlab/" --description "docker-runner" --run-untagged --locked "false"'
     with_items: "{{ runn_id.stdout_lines }}"
 
 
