@@ -11,13 +11,6 @@ variables:
   DATABASE_URL: 'mongodb://mongo/user_posts'
   DOCKER_HOST: tcp://docker:2375/
   DOCKER_DRIVER: overlay2
-  
-services:
-   - docker:dind
-
-before_script:
-  - cd reddit
-  - bundle install
 
 build_job:
   stage: build
@@ -27,6 +20,8 @@ build_job:
 build_reddit:
   stage: build
   image: docker:stable
+  services:
+    - docker:dind
   script:
     - docker info
     - docker-compose -v
@@ -38,6 +33,8 @@ test_unit_job:
   services:
     - mongo:latest   
   script:
+    - cd reddit
+    - bundle install
     - ruby simpletest.rb
 
 test_unit_job:
