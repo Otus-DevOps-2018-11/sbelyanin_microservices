@@ -1,0 +1,99 @@
+image: ruby:2.4.2
+
+stages:
+  - build
+  - test
+  - review
+  - stage
+  - production
+
+variables:
+  DATABASE_URL: 'mongodb://mongo/user_posts'
+#  DOCKER_HOST: tcp://docker:2375/
+#  DOCKER_DRIVER: overlay2
+
+build_job:
+  stage: build
+  script:
+    - echo 'Building'
+
+build_reddit:
+  stage: build
+  image: docker:stable
+#  services:
+#    - docker:dind
+  script:
+    - docker info
+    - cd docker-monolith
+    - docker build -t reddit:latest .
+
+test_unit_job:
+  stage: test   
+  services:
+    - mongo:latest   
+  script:
+    - cd reddit
+    - bundle install
+    - ruby simpletest.rb
+
+test_unit_job:
+  stage: test
+  script:
+    - echo 'Testing 1'
+
+test_integration_job:
+  stage: test
+  script:
+    - echo 'Testing 2'
+
+deploy_dev_job:
+  stage: review
+  script:
+    - echo 'Deploy'
+  environment:
+    name: dev
+    url: http://dev.example.com
+
+
+branch review:
+  stage: review
+  script: echo "Deploy to $CI_ENVIRONMENT_SLUG"
+  environment:     
+    name: branch/$CI_COMMIT_REF_NAME
+    url: http://$CI_ENVIRONMENT_SLUG.example.com  
+  only:
+    - branches   
+  except:
+    - master
+
+staging:
+  stage: stage 
+  when: manual
+  only:     
+    - /^\d+\.\d+\.\d+/
+  script:     
+    - echo 'Deploy'  
+  environment:
+    name: stage
+    url: https://beta.example.com
+    
+production_reddit:
+  stage: production
+  image: docker:stable
+  when: manual
+  script:     
+    - docker run -d --rm -p 9292:9292 reddit:latest
+  environment: 
+    name: production
+    url: http://34.76.155.31:9292
+
+production:
+  stage: production
+  when: manual
+  only:
+    - /^\d+\.\d+\.\d+/
+  script:     
+    - echo 'Deploy'  
+  environment: 
+    name: production
+    url: https://beta.example.com

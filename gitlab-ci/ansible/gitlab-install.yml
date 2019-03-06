@@ -1,0 +1,43 @@
+---
+- name: Install Gitlab into docker
+  hosts: all
+  vars:
+    work_user: appuser
+    docker_group: docker
+    gitlab_dir: /srv/gitlab
+    gitlab_ext_ip: "{{ hostvars['docker-gitlab']['gce_public_ip'] }}"
+    gitlab_runners: 1 
+  tasks:
+
+  - name: Create directory for gitlab
+    become: true
+    file:
+      path: "{{ gitlab_dir }}"
+      state: directory
+      owner: "{{ work_user }}"
+      group: "{{ docker_group }}"
+      mode: 0770
+      recurse: yes
+
+  - name: List Docker networks 
+    shell: "docker network ls"
+    changed_when: False
+    register: dockerNets
+  - name: Create gitlab network 
+    shell: "docker network create --driver bridge --subnet=172.32.200.0/24 --ip-range=172.32.200.0/24 --attachable  {{item}}"
+    when: item not in dockerNets.stdout
+    loop:
+     - gitlab-net
+
+  - name: Settings and copy docker-compose file
+    template:
+      src: template/docker-compose.yml.j2
+      dest: "{{ gitlab_dir }}/docker-compose.yml"
+      owner: "{{ work_user }}"
+      group: "{{ docker_group }}"
+
+  - name: run gitlab from docker-compose.yml
+    docker_service:
+     project_src: "{{ gitlab_dir }}"
+     services: gitlab 
+     restarted: yes

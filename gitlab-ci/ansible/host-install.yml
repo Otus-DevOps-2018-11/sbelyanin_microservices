@@ -1,0 +1,72 @@
+---
+# Host for Gitlab install Playbook
+- name: GCE Instance for gitlab
+  hosts: localhost
+#INPUT YOU VARS!!!!!!
+  vars:
+    service_account_email: "87343312834-compute@developer.gserviceaccount.com"
+    credentials_file: "~/gcp/infra.json"
+    project_id: "docker-911"
+    auth_kind: serviceaccount
+  tasks:
+    - name: Create Firewall Rule for http/s acces to gitlab
+      gce_net:
+        name: default
+        service_account_email: "{{ service_account_email }}"
+        credentials_file: "{{ credentials_file }}"
+        project_id: "{{ project_id }}"
+        fwname: "gitlab-firewall-rule"
+        allowed: tcp:80;tcp:443;tcp:9292
+        state: "present"
+        target_tags: "gitlab-host"
+        src_range: ['0.0.0.0/0']
+    - name: create a disk
+      gce_pd:
+         name: 'disk-gitlab'
+         disk_type: pd-standard
+         size_gb: 100
+         image_family: ubuntu-1604-lts
+         service_account_email: "{{ service_account_email }}"
+         credentials_file: "{{ credentials_file }}"
+         project_id: "{{ project_id }}"
+         zone: europe-west1-b
+         state: present
+      register: disk
+
+    - name: Get the default SSH key
+      command: cat ~/.ssh/appuser.pub
+      register: ssh_key
+
+    - name: create docker instances
+      gce:
+        instance_names: docker-gitlab
+        zone: europe-west1-b 
+        machine_type: n1-standard-1
+        state: present
+        service_account_email: "{{ service_account_email }}"
+        credentials_file: "{{ credentials_file }}"
+        project_id: "{{ project_id }}"
+        disks:
+           - name: disk-gitlab
+             mode: READ_WRITE
+        metadata : '{ 
+             "startup-script" : "apt-get update",
+             "sshKeys":"appuser:{{ ssh_key.stdout }}" 
+          }'
+        tags: "gitlab-host"
+      register: gce
+
+    - name: Save host data
+      add_host:
+        hostname: "{{ item.public_ip }}"
+        groupname: gce_instances_ips
+      with_items: "{{ gce.instance_data }}"
+
+    - name: Wait for SSH for instances
+      wait_for:
+        delay: 1
+        host: "{{ item.public_ip }}"
+        port: 22
+        state: started
+        timeout: 30
+      with_items: "{{ gce.instance_data }}"

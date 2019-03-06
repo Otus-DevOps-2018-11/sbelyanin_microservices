@@ -1,0 +1,32 @@
+---
+- name: Install Docker-ce Docker-compose
+  hosts: all
+  become: true
+  vars:
+    work_user: appuser
+    docker_group: docker
+  tasks:
+  - name: Add Docker GPG key
+    apt_key: url=https://download.docker.com/linux/ubuntu/gpg
+
+  - name: Add Docker APT repository
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ansible_distribution_release}} stable
+
+  - name: Install list of packages
+    apt:
+      name: ['apt-transport-https','ca-certificates','curl','software-properties-common','docker-ce']
+      state: present
+      update_cache: yes
+
+  - name: Add work "appuser" user to "docker" group
+    user:
+      name: "{{ work_user }}"
+      group: "{{ docker_group }}"
+      append: yes
+
+  - name: Install docker-compose
+    apt:
+      name: docker-compose=1.8.*
+      state: present
+      update_cache: yes
