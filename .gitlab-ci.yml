@@ -76,6 +76,16 @@ staging:
   environment:
     name: stage
     url: https://beta.example.com
+    
+production_reddit:
+  stage: production
+  image: docker:stable
+  when: manual
+  script:     
+    - docker run -d --rm -p 9292:9292 reddit:latest
+  environment: 
+    name: production
+    url: http://34.76.155.31:9292
 
 production:
   stage: production
