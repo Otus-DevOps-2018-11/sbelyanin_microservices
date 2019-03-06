@@ -16,7 +16,7 @@
         credentials_file: "{{ credentials_file }}"
         project_id: "{{ project_id }}"
         fwname: "gitlab-firewall-rule"
-        allowed: tcp:80;tcp:443
+        allowed: tcp:80;tcp:443;tcp:9292
         state: "present"
         target_tags: "gitlab-host"
         src_range: ['0.0.0.0/0']
