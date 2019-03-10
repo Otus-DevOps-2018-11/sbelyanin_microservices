@@ -68,6 +68,27 @@ services:
     networks:
       back_net:
 
+  mongod_exporter:
+    image: ${USERNAME}/mongod_exporter:${MONGOD_EXP}
+    environment:
+      - MONGODB_URI
+    networks:
+      back_net:
+       aliases:
+        - mongod_exporter
+
+  blackbox_exporter:
+    image: ${USERNAME}/blackbox_exporter:${BLACKBOX_EXP}
+    expose:
+      - "9115"
+    networks:
+      back_net:
+       aliases:
+        - blackbox
+      front_net:
+       aliases:   
+        - blackbox
+
 volumes:
   post_db:
   prometheus_data:
