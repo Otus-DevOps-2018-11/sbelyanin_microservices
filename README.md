@@ -2,392 +2,254 @@
 # sbelyanin_microservices
 sbelyanin microservices repository
 
-## HW №16
+## HW №17
 
-# Устройство Gitlab CI. Построение процесса непрерывной поставки
+# Введение в мониторинг. Системы мониторинга.
 
-- Для разворачивания инфраструктуры выбран ansible и динамическое инвентори.
-- Созданы playbooks:
+# Prometheus: запуск, конфигурация, знакомство с Web UI 
+ - Создал правило фаирвола в GCP для подключения к Prometheus и ReddiApp.
+ - Создал инстанс для инфраструктуры используя docker-machine.
+ - Запустил Prometheus в докер контейнере и подключился к нему используя Web UI.
+ - Проверил что цель по умолчанию работает (сам Prometheus)
+ - Переупорядочил структуру директорий.
+ - Создал имидж с Prometheus и кастомным конфиг файлом.
+# Мониторинг состояния микросервисов
+ - Создал образы микросервисов используя docker_build.sh.
+ - Изменил кастомный конфиг файл Prometheus для снятия метрик с микросервисов.
+ - Подключил микросервисы в основной yml файл - docker/docker-compose.yml.
+ - Запустил приложение и сервис мониторинга вместе и проверил состояние конечных точек.
+ - Проверил зависимость метрики ui_health от состояния сервисов - например при отключении сервиса post, метрика ui_health и ui_health_post_availability устанавливается в ноль, а ui_health_comment_availability остается равной 1. А если отключить сервис mongodb - данные метрики устанавливаются в 0.
+# Сбор метрик хоста с использованием экспортера
+ - Подключил node_exporter в инфраструктуру для сбора метрик с хоста.
+ - Проверил доступность конечной точки node eporter.
+ - Проверил правильсть снятие метрики node_load1 используя команду "yes > /dev/null" на докер хосте.
+ - Запушил все созданные имиджи на dockerhub: https://hub.docker.com/u/sbelyanin
+ 
+Итоговый файлы:
+
+<details><summary>docker/docker-compose.yml</summary><p>
+
 ```bash
-docker-install.yml - инсталяция docker в систему
-gitlab-install.yml - инсталяуия Gitlab в систему
-host-install.yml - развертывание хоста в GCP
-runner-install.yml - инсталяция и подключение раннеров
-site.yml - обьеденяющий playbook
+version: '3.3'
+
+services:
+  post_db:
+    image: mongo:${MONGODB_V}
+    volumes:
+      - post_db:/data/db
+    networks:
+      back_net:
+       aliases:
+        - post_db
+        - comment_db
+
+  ui:
+    image: ${USERNAME}/ui
+    hostname: reddit-app
+    ports:
+      - ${HOST_PORT}:9292
+    networks:
+      - front_net
+
+  post:
+    image: ${USERNAME}/post
+    networks:
+      back_net:
+       aliases:
+        - post
+      front_net:
+       aliases:
+        - post
+
+  comment:
+    image: ${USERNAME}/comment
+    networks:
+      front_net:
+        aliases:
+          - comment
+      back_net:
+        aliases:
+          - comment
+   
+  prometheus:
+    image: ${USERNAME}/prometheus
+    ports:
+      - '9090:9090'
+    volumes:
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention=1d'
+    networks:
+      front_net:
+      back_net:
+
+  node-exporter:
+    image: prom/node-exporter:v0.15.2
+    user: root
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
+    networks:
+      back_net:
+
+  mongod_exporter:
+    image: ${USERNAME}/mongod_exporter:${MONGOD_EXP}
+    environment:
+      - MONGODB_URI
+    networks:
+      back_net:
+       aliases:
+        - mongod_exporter
+
+  blackbox_exporter:
+    image: ${USERNAME}/blackbox_exporter:${BLACKBOX_EXP}
+    expose:
+      - "9115"
+    networks:
+      back_net:
+       aliases:
+        - blackbox
+      front_net:
+       aliases:   
+        - blackbox
+
+volumes:
+  post_db:
+  prometheus_data:
+
+networks:
+  front_net:
+    ipam:
+      config:
+        - subnet: 10.0.3.0/24
+  back_net:
+    ipam:
+      config:
+        - subnet: 10.0.4.0/24
+
 ```
-<details><summary>docker-install.yml</summary><p>
+</p></details>
+
+
+<details><summary>monitoring/prometheus/prometheus.yml</summary><p>
 
 ```bash
 ---
-- name: Install Docker-ce Docker-compose
-  hosts: all
-  become: true
-  vars:
-    work_user: appuser
-    docker_group: docker
-  tasks:
-  - name: Add Docker GPG key
-    apt_key: url=https://download.docker.com/linux/ubuntu/gpg
+global:
+  scrape_interval: '5s'
 
-  - name: Add Docker APT repository
-    apt_repository:
-      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ansible_distribution_release}} stable
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+        - 'localhost:9090'
 
-  - name: Install list of packages
-    apt:
-      name: ['apt-transport-https','ca-certificates','curl','software-properties-common','docker-ce']
-      state: present
-      update_cache: yes
+  - job_name: 'ui'
+    static_configs:
+      - targets:
+        - 'ui:9292'
 
-  - name: Add work "appuser" user to "docker" group
-    user:
-      name: "{{ work_user }}"
-      group: "{{ docker_group }}"
-      append: yes
+  - job_name: 'comment'
+    static_configs:
+      - targets:
+        - 'comment:9292'
 
-  - name: Install docker-compose
-    apt:
-      name: docker-compose=1.8.*
-      state: present
-      update_cache: yes
+  - job_name: 'node'    
+    static_configs:
+      - targets:
+        - 'node-exporter:9100'
 
-```
-</p></details>
+  - job_name: 'mongodb'
+    static_configs:
+      - targets:
+        - 'mongod_exporter:9216'
 
-<details><summary>gitlab-install.yml</summary><p>
-
-```bash
----
-- name: Install Gitlab into docker
-  hosts: all
-  vars:
-    work_user: appuser
-    docker_group: docker
-    gitlab_dir: /srv/gitlab
-    gitlab_ext_ip: "{{ hostvars['docker-gitlab']['gce_public_ip'] }}"
-    gitlab_runners: 1 
-  tasks:
-
-  - name: Create directory for gitlab
-    become: true
-    file:
-      path: "{{ gitlab_dir }}"
-      state: directory
-      owner: "{{ work_user }}"
-      group: "{{ docker_group }}"
-      mode: 0770
-      recurse: yes
-
-  - name: List Docker networks 
-    shell: "docker network ls"
-    changed_when: False
-    register: dockerNets
-  - name: Create gitlab network 
-    shell: "docker network create --driver bridge --subnet=172.32.200.0/24 --ip-range=172.32.200.0/24 --attachable  {{item}}"
-    when: item not in dockerNets.stdout
-    loop:
-     - gitlab-net
-
-  - name: Settings and copy docker-compose file
-    template:
-      src: template/docker-compose.yml.j2
-      dest: "{{ gitlab_dir }}/docker-compose.yml"
-      owner: "{{ work_user }}"
-      group: "{{ docker_group }}"
-
-  - name: run gitlab from docker-compose.yml
-    docker_service:
-     project_src: "{{ gitlab_dir }}"
-     services: gitlab 
-     restarted: yes
-```
-</p></details>
-
-<details><summary>host-install.yml</summary><p>
-
-```bash
----
-# Host for Gitlab install Playbook
-- name: GCE Instance for gitlab
-  hosts: localhost
-#INPUT YOU VARS!!!!!!
-  vars:
-    service_account_email: "87343312834-compute@developer.gserviceaccount.com"
-    credentials_file: "~/gcp/infra.json"
-    project_id: "docker-911"
-    auth_kind: serviceaccount
-  tasks:
-    - name: Create Firewall Rule for http/s acces to gitlab
-      gce_net:
-        name: default
-        service_account_email: "{{ service_account_email }}"
-        credentials_file: "{{ credentials_file }}"
-        project_id: "{{ project_id }}"
-        fwname: "gitlab-firewall-rule"
-        allowed: tcp:80;tcp:443;tcp:9292
-        state: "present"
-        target_tags: "gitlab-host"
-        src_range: ['0.0.0.0/0']
-    - name: create a disk
-      gce_pd:
-         name: 'disk-gitlab'
-         disk_type: pd-standard
-         size_gb: 100
-         image_family: ubuntu-1604-lts
-         service_account_email: "{{ service_account_email }}"
-         credentials_file: "{{ credentials_file }}"
-         project_id: "{{ project_id }}"
-         zone: europe-west1-b
-         state: present
-      register: disk
-
-    - name: Get the default SSH key
-      command: cat ~/.ssh/appuser.pub
-      register: ssh_key
-
-    - name: create docker instances
-      gce:
-        instance_names: docker-gitlab
-        zone: europe-west1-b 
-        machine_type: n1-standard-1
-        state: present
-        service_account_email: "{{ service_account_email }}"
-        credentials_file: "{{ credentials_file }}"
-        project_id: "{{ project_id }}"
-        disks:
-           - name: disk-gitlab
-             mode: READ_WRITE
-        metadata : '{ 
-             "startup-script" : "apt-get update",
-             "sshKeys":"appuser:{{ ssh_key.stdout }}" 
-          }'
-        tags: "gitlab-host"
-      register: gce
-
-    - name: Save host data
-      add_host:
-        hostname: "{{ item.public_ip }}"
-        groupname: gce_instances_ips
-      with_items: "{{ gce.instance_data }}"
-
-    - name: Wait for SSH for instances
-      wait_for:
-        delay: 1
-        host: "{{ item.public_ip }}"
-        port: 22
-        state: started
-        timeout: 30
-with_items: "{{ gce.instance_data }}"
-```
-</p></details>
-
-<details><summary>runner-install.yml</summary><p>
-
-```bash
----
-- name: Install runners and connect to gitlab
-  hosts: all
-  vars:
-    work_user: appuser
-    docker_group: docker
-    gitlab_dir: /srv/gitlab
-    gitlab_ext_ip: "{{ hostvars['docker-gitlab']['gce_public_ip'] }}"
-    gitlab_runners: 2 
-  tasks:
-
-  - name: Get gitlab token for runner
-    shell: "docker exec -ti gitlab gitlab-rails runner -e production \"puts Gitlab::CurrentSettings.current_application_settings.runners_registration_token\""
-    register: gitlab_token
-
-  - name: Show token
-    debug: 
-      var: gitlab_token.stdout 
-
-  - name: Settings env
-    template:
-      src: template/.env.j2
-      dest: "{{ gitlab_dir }}/.env"
-      owner: "{{ work_user }}"
-      group: "{{ docker_group }}" 
-
-  - name: Run gitlab-runners from docker-compose.yml
-    docker_service:  
-     project_src: "{{ gitlab_dir }}"
-     services: runner
-     scale: 
-       runner: "{{ gitlab_runners }}"
-     restarted: yes
-
-  - name: Get container id with runner 
-    shell: "docker ps -q -f \"name=gl_runner\""
-    register: "runn_id"
-
-  - name: Show ID
-    debug:
-      var: runn_id.stdout
-
-  - name: Register runners into gitlab
-    shell: |
-       docker exec -ti {{ item }} bash -c 'grep "docker-runner" /etc/gitlab-runner/config.toml > /dev/null || gitlab-runner register --non-interactive --registration-token "{{ gitlab_token.stdout }}" --executor "docker" --docker-image alpine:3 --docker-volumes /var/run/docker.sock:/var/run/docker.sock --docker-privileged --url "http://gitlab/" --description "docker-runner" --run-untagged --locked "false"'
-with_items: "{{ runn_id.stdout_lines }}"
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module:   # Look for a HTTP 200 response.
+        - http_2xx
+        - tcp_connect
+        - icmp  
+    static_configs:
+      - targets:
+        - http://post:5000    # Target to probe post
+        - http://ui:9292      # Target to probe ui
+        - http://comment:9292 # Target to probe comment
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+replacement: blackbox:9115  # The blackbox exporter's real hostname:port.
 
 ```
 </p></details>
 
-<details><summary>site.yml</summary><p>
+# Задания со *
+ - Добавил Prometheus мониторинг MongoDB, использовал https://github.com/percona/mongodb_exporter . Создал monitoring/mongod_exporter/Dockerfile:
+ ```bash
+FROM golang:1.11
+WORKDIR /go/src/github.com/percona/mongodb_exporter
+RUN git clone "https://github.com/percona/mongodb_exporter" /go/src/github.com/percona/mongodb_exporter
+RUN make build
+FROM quay.io/prometheus/busybox:latest
+COPY --from=0 /go/src/github.com/percona/mongodb_exporter/bin/mongodb_exporter /bin/mongodb_exporter
+EXPOSE 9216
+ENTRYPOINT [ "/bin/mongodb_exporter" ]
+```
+ - Добавил Prometheus мониторинг сервисов comment, post, ui с помощью blackbox экспортера - monitoring/blackbox_exporter/Dockerfile:
+ ```bash
+FROM prom/blackbox-exporter:v0.14.0
+COPY config.yml /etc/blackbox_exporter/config.yml
+```
+ - Создал файл Makefile для билда всех, билда по одному и пуша всех использованных имиджей в ДЗ:
+
+<details><summary>Makefile</summary><p>
 
 ```bash
----
-- import_playbook: host-install.yml
-- import_playbook: docker-install.yml
-- import_playbook: gitlab-install.yml
-#start after basic gitlab setup
-#- import_playbook: runner-install.yml
+export USERNAME=sbelyanin
+export MONGOD_EXP=v0.6.3 
+export BLACKBOX_EXP=v0.14.0
+export COMPOSE_TLS_VERSION=TLSv1_2
+
+
+build-all:
+	docker build -t $(USERNAME)/prometheus monitoring/prometheus/
+	docker build -t $(USERNAME)/comment src/comment/
+	docker build -t $(USERNAME)/post src/post-py/
+	docker build -t $(USERNAME)/ui src/ui/
+	docker build -t $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP) monitoring/blackbox_exporter/
+	docker build -t $(USERNAME)/mongod_exporter:$(MONGOD_EXP) monitoring/mongod_exporter/
+#
+build-ui:
+	docker build -t $(USERNAME)/ui src/ui/
+build-comment:
+	docker build -t $(USERNAME)/comment src/comment/
+build-post:
+	docker build -t $(USERNAME)/post src/post-py/
+build-prometheus:
+	docker build -t $(USERNAME)/prometheus monitoring/prometheus/
+build-blackbox-exp:
+	docker build -t $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP) monitoring/blackbox_exporter/
+build-mongod-exp:
+	docker build -t $(USERNAME)/mongod_exporter:$(MONGOD_EXP) monitoring/mongod_exporter/
+
+push-all:
+	docker push $(USERNAME)/prometheus
+	docker push $(USERNAME)/comment
+	docker push $(USERNAME)/post
+	docker push $(USERNAME)/ui
+	docker push $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP)
+docker push $(USERNAME)/mongod_exporter:$(MONGOD_EXP)
 
 ```
 </p></details>
-
-- В процессе разворачивания используются шаблоны для создания .env и docker-compose.yml.
-- Процесс создания ифраструктуры поделил на два этапа, первый - создание хоста, развертывание gitlab и его минимальная настройка и второй - развертывание и подключение раннеров. Все кроме первоначальной настройки происходит средствами ansible.
-
-- Создал группу и в ней проект с содержимым репозитария sbelyanin_microservices.
-- Добавил код репозитария reddit.
-- Добавил тесты, окружение dev, stage и production, директива only и job для динкамического окружения.
-- Итог:
-
-<details><summary>.gitlab-ci.yml</summary><p>
-
-```bash
-image: ruby:2.4.2
-
-stages:
-  - build
-  - test
-  - review
-  - stage
-  - production
-
-variables:
-  DATABASE_URL: 'mongodb://mongo/user_posts'
-#  DOCKER_HOST: tcp://docker:2375/
-#  DOCKER_DRIVER: overlay2
-
-build_job:
-  stage: build
-  script:
-    - echo 'Building'
-
-build_reddit:
-  stage: build
-  image: docker:stable
-#  services:
-#    - docker:dind
-  script:
-    - docker info
-    - cd docker-monolith
-    - docker build -t reddit:latest .
-
-test_unit_job:
-  stage: test   
-  services:
-    - mongo:latest   
-  script:
-    - cd reddit
-    - bundle install
-    - ruby simpletest.rb
-
-test_unit_job:
-  stage: test
-  script:
-    - echo 'Testing 1'
-
-test_integration_job:
-  stage: test
-  script:
-    - echo 'Testing 2'
-
-deploy_dev_job:
-  stage: review
-  script:
-    - echo 'Deploy'
-  environment:
-    name: dev
-    url: http://dev.example.com
-
-
-branch review:
-  stage: review
-  script: echo "Deploy to $CI_ENVIRONMENT_SLUG"
-  environment:     
-    name: branch/$CI_COMMIT_REF_NAME
-    url: http://$CI_ENVIRONMENT_SLUG.example.com  
-  only:
-    - branches   
-  except:
-    - master
-
-staging:
-  stage: stage 
-  when: manual
-  only:     
-    - /^\d+\.\d+\.\d+/
-  script:     
-    - echo 'Deploy'  
-  environment:
-    name: stage
-    url: https://beta.example.com
-    
-production_reddit:
-  stage: production
-  image: docker:stable
-  when: manual
-  script:     
-    - docker run -d --rm -p 9292:9292 reddit:latest
-  environment: 
-    name: production
-    url: http://34.76.155.31:9292
-
-production:
-  stage: production
-  when: manual
-  only:
-    - /^\d+\.\d+\.\d+/
-  script:     
-    - echo 'Deploy'  
-  environment: 
-    name: production
-url: https://beta.example.com
-
-```
-</p></details>
-
-
-# Задание со *
-
-- В gitlab-ci.yml добавил сборку контейнера с приложением reddit:
-```bash
-build_reddit:
-  stage: build
-  image: docker:stable
-  script:
-    - docker info
-    - cd docker-monolith
-    - docker build -t reddit:latest .
-```
-- и его развертывание в инстансе:
-```bash
-production_reddit:
-  stage: production
-  image: docker:stable
-  when: manual
-  script:     
-    - docker run -d --rm -p 9292:9292 reddit:latest
-  environment: 
-    name: production
-    url: http://34.76.155.31:9292
-```
-- Создание контейнера сталов возможно используя имидж docker:stable, а его развертывание на самом сервере используя запуск контейнера с пробросом сокета от основного docker демона (-docker-volumes /var/run/docker.sock:/var/run/docker.sock --docker-privileged). Что не является хорошо с точки зрения безопасности. Другие варианты - используя хранилище артефактов или репозитарий докер контейнеров.
-
-- Автоматическое развертывание раннеров и их подключение реализовал с помощью ansible и его модуля docker_service (service scale). Содержимое playbook runner-install.yml выше по тексту. В двух словах - запускаются stateless контейнеры gl_runner далее из gitlab забирается токен и сканируя все не подключенные контейнеры они подключаются как shareed runners. Поменять количество раннеров можно динамически - меняя значение gitlab_runners в runner-install.yml и запуская его. Единственнное что придется делать руками - это отстреливать "умершие" раннеры и переводя новые раннеры в определенные проекты. Так как ранеры я использовал как stateless - то в принципе можно использовать другие среды (swarm, cuber).
-
-- Настроил интеграцию с Slack чатом, используя webhook.
