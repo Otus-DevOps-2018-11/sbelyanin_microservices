@@ -40,65 +40,13 @@ services:
         aliases:
           - comment
    
-  prometheus:
-    image: ${USERNAME}/prometheus
-    ports:
-      - '9090:9090'
-    volumes:
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention=1d'
-    networks:
-      front_net:
-      back_net:
-
-  node-exporter:
-    image: prom/node-exporter:v0.15.2
-    user: root
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
-    networks:
-      back_net:
-
-  mongod_exporter:
-    image: ${USERNAME}/mongod_exporter:${MONGOD_EXP}
-    environment:
-      - MONGODB_URI
-    networks:
-      back_net:
-       aliases:
-        - mongod_exporter
-
-  blackbox_exporter:
-    image: ${USERNAME}/blackbox_exporter:${BLACKBOX_EXP}
-    expose:
-      - "9115"
-    networks:
-      back_net:
-       aliases:
-        - blackbox
-      front_net:
-       aliases:   
-        - blackbox
-
 volumes:
   post_db:
-  prometheus_data:
 
 networks:
-  front_net:
-    ipam:
-      config:
-        - subnet: 10.0.3.0/24
-  back_net:
-    ipam:
-      config:
-        - subnet: 10.0.4.0/24
+    front_net:
+      external:
+        name: front_net
+    back_net:
+      external:
+        name: back_net
