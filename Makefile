@@ -12,6 +12,7 @@ build-all:
 	docker build -t $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP) monitoring/blackbox_exporter/
 	docker build -t $(USERNAME)/mongod_exporter:$(MONGOD_EXP) monitoring/mongod_exporter/
 	docker build -t $(USERNAME)/alertmanager monitoring/alertmanager/
+	docker build -t $(USERNAME)/telegraf monitoring/telegraf/
 #
 build-ui:
 	docker build -t $(USERNAME)/ui src/ui/
@@ -23,6 +24,8 @@ build-prometheus:
 	docker build -t $(USERNAME)/prometheus monitoring/prometheus/
 build-alertmanager:
 	docker build -t $(USERNAME)/alertmanager monitoring/alertmanager/
+build-telegraf:
+	docker build -t $(USERNAME)/telegraf monitoring/telegraf/
 build-blackbox-exp:
 	docker build -t $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP) monitoring/blackbox_exporter/
 build-mongod-exp:
@@ -36,3 +39,4 @@ push-all:
 	docker push $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP)
 	docker push $(USERNAME)/mongod_exporter:$(MONGOD_EXP)
 	docker push $(USERNAME)/alertmanager
+	docker push $(USERNAME)/telegraf

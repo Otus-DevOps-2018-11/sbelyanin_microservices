@@ -1,11 +1,20 @@
 global:
   slack_api_url: 'https://hooks.slack.com/services/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'
+  resolve_timeout: 5m
+  smtp_smarthost: mail.gmail.com:587
+  smtp_from: GMAIL_ACCOUNT
+  smtp_auth_username: GMAIL_ACCOUNT
+  smtp_auth_password: PASSWORD
 
 route:
   receiver: 'slack-notifications'
+  routes:
+    - receiver: 'smtp-receiver'
 
 receivers:
 - name: 'slack-notifications'
   slack_configs:
   - channel: '#sergey_belyanin'
-
+- name: 'smtp-receiver'
+  email_configs:
+  - to: 2@EMAIL
