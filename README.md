@@ -2,35 +2,16 @@
 # sbelyanin_microservices
 sbelyanin microservices repository
 
-## HW №17
+## HW №18
 
-# Введение в мониторинг. Системы мониторинга.
+# Мониторинг приложения и инфраструктуры
+ - Разделил файлы Docker compose на два файла, один с приложением, другой с системой мониторинга:
 
-# Prometheus: запуск, конфигурация, знакомство с Web UI 
- - Создал правило фаирвола в GCP для подключения к Prometheus и ReddiApp.
- - Создал инстанс для инфраструктуры используя docker-machine.
- - Запустил Prometheus в докер контейнере и подключился к нему используя Web UI.
- - Проверил что цель по умолчанию работает (сам Prometheus)
- - Переупорядочил структуру директорий.
- - Создал имидж с Prometheus и кастомным конфиг файлом.
-# Мониторинг состояния микросервисов
- - Создал образы микросервисов используя docker_build.sh.
- - Изменил кастомный конфиг файл Prometheus для снятия метрик с микросервисов.
- - Подключил микросервисы в основной yml файл - docker/docker-compose.yml.
- - Запустил приложение и сервис мониторинга вместе и проверил состояние конечных точек.
- - Проверил зависимость метрики ui_health от состояния сервисов - например при отключении сервиса post, метрика ui_health и ui_health_post_availability устанавливается в ноль, а ui_health_comment_availability остается равной 1. А если отключить сервис mongodb - данные метрики устанавливаются в 0.
-# Сбор метрик хоста с использованием экспортера
- - Подключил node_exporter в инфраструктуру для сбора метрик с хоста.
- - Проверил доступность конечной точки node eporter.
- - Проверил правильсть снятие метрики node_load1 используя команду "yes > /dev/null" на докер хосте.
- - Запушил все созданные имиджи на dockerhub: https://hub.docker.com/u/sbelyanin
- 
-Итоговый файлы:
-
-<details><summary>docker/docker-compose.yml</summary><p>
+<details><summary>docker-compose.yml</summary><p>
 
 ```bash
 version: '3.3'
+
 
 services:
   post_db:
@@ -71,6 +52,27 @@ services:
         aliases:
           - comment
    
+volumes:
+  post_db:
+
+networks:
+    front_net:
+      external:
+        name: front_net
+    back_net:
+      external:
+name: back_net
+```
+</p></details>
+
+<details><summary>docker-compose-monitoring.yml</summary><p>
+
+```bash
+
+106 lines (95 sloc) 2.05 KB
+version: '3.3'
+
+services:
   prometheus:
     image: ${USERNAME}/prometheus
     ports:
@@ -120,136 +122,129 @@ services:
        aliases:   
         - blackbox
 
+  cadvisor:
+    image: google/cadvisor:v0.29.0
+    volumes:
+      - '/:/rootfs:ro'
+      - '/var/run:/var/run:rw'
+      - '/sys:/sys:ro'
+      - '/var/lib/docker/:/var/lib/docker:ro'
+    ports:
+      - '8080:8080'
+    networks:
+      back_net:
+       aliases:
+        - cadvisor
+
+  grafana:
+    image: grafana/grafana:5.0.0
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=Gra_fanA
+    depends_on:
+      - prometheus
+    ports:
+      - 3000:3000
+    networks:
+      back_net:
+       aliases:
+        - grafana
+
+  alertmanager:
+    image: ${USERNAME}/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+    ports:
+      - 9093:9093
+    networks:
+      back_net:
+       aliases:
+        - alertmanager
+
 volumes:
-  post_db:
   prometheus_data:
+  grafana_data:
 
 networks:
-  front_net:
-    ipam:
-      config:
-        - subnet: 10.0.3.0/24
-  back_net:
-    ipam:
-      config:
-        - subnet: 10.0.4.0/24
+   front_net:
+      external:
+        name: front_net   
+   back_net:
+      external:    
+        name: back_net
 
 ```
 </p></details>
 
+# Мониторинг Docker контейнеров
+ - Настроил сервис сбора метрик с Docker хоста при помощи cAdvisor и прописал его в цели для сборки метрик в Prometheus.
+ - Проверил что метрики контейнеров собираются мониторингом.
+ 
+# Визуализация метрик
+- Добавил сервис визуализации Grafana.
+- Добавил источник данных Prometheus в Grafana
 
-<details><summary>monitoring/prometheus/prometheus.yml</summary><p>
+# Сбор метрик работы приложения и бизнесметрик
+- Добавил в систему визуализации дашбоард "Docker and system monitoring". Загрузил данный дашбоард в grafana/dashboards/DockerMonitoring.json
+- Создал два дашбоарда с мониторингом сервиса и бизнес логики приложения. Поместил их в grafana/dashboards/ 	UI_Service_Monitoring.json и grafana/dashboards/Business_Logic_Monitoring.json
+ 
+# Настройка и проверка алертинга
+- Утановил и настроил дополнительный компонет для системы мониторинга Alertmanager. Настроил отправку сообщей в slack канал через web hook.
+- Запушил все исполдьзуемые кастомные контейнеры на Docker hub - https://hub.docker.com/u/sbelyanin
+
+# Задание со *
+- Добавил в MakeFile билды и публикации новых сервисов.
+- Добавил сбор метрик напрямую из Docker. Включил даннную опцию в докер демоне и прописал сбор метрик с него в prometheus. Использовал для визуализации готовый дашбоард - https://grafana.com/dashboards/1229. Количество метрик на порядок меньше чем в cAdvisor. Дашбоард скопировал в grafana/dashboards/docker_engine_metrics.json
+- Добавил сбор метрик при помощи telegraf. Дополнительно поставил InfluxDB. Оформил все в виде отдельного docker compose файла:
+<details><summary>docker-compose-telegraf.yml</summary><p>
 
 ```bash
----
-global:
-  scrape_interval: '5s'
+version: '3.3'
 
-scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets:
-        - 'localhost:9090'
+services:
+  influxdb:
+    image: influxdb
+    container_name: influxdb
+    restart: always
+    ports:
+      - 8086:8086
+    networks:
+      back_net:
+    volumes:
+      - influxdb-volume:/var/lib/influxdb
 
-  - job_name: 'ui'
-    static_configs:
-      - targets:
-        - 'ui:9292'
+  telegraf:
+    image: ${USERNAME}/telegraf
+    restart: always
+    container_name: telegraf
+    environment:
+      HOST_PROC: /rootfs/proc
+      HOST_SYS: /rootfs/sys
+      HOST_ETC: /rootfs/etc
+    hostname: myhostname
+    volumes:
+#      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/rootfs/sys:ro
+      - /proc:/rootfs/proc:ro
+      - /etc:/rootfs/etc:ro
+    networks:
+      back_net:
 
-  - job_name: 'comment'
-    static_configs:
-      - targets:
-        - 'comment:9292'
+volumes:
+  influxdb-volume:
 
-  - job_name: 'node'    
-    static_configs:
-      - targets:
-        - 'node-exporter:9100'
+networks:  
+   back_net:
+      external:    
+        name: back_net
 
-  - job_name: 'mongodb'
-    static_configs:
-      - targets:
-        - 'mongod_exporter:9216'
-
-  - job_name: 'blackbox'
-    metrics_path: /probe
-    params:
-      module:   # Look for a HTTP 200 response.
-        - http_2xx
-        - tcp_connect
-        - icmp  
-    static_configs:
-      - targets:
-        - http://post:5000    # Target to probe post
-        - http://ui:9292      # Target to probe ui
-        - http://comment:9292 # Target to probe comment
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-replacement: blackbox:9115  # The blackbox exporter's real hostname:port.
 
 ```
 </p></details>
 
-# Задания со *
- - Добавил Prometheus мониторинг MongoDB, использовал https://github.com/percona/mongodb_exporter . Создал monitoring/mongod_exporter/Dockerfile:
- ```bash
-FROM golang:1.11
-WORKDIR /go/src/github.com/percona/mongodb_exporter
-RUN git clone "https://github.com/percona/mongodb_exporter" /go/src/github.com/percona/mongodb_exporter
-RUN make build
-FROM quay.io/prometheus/busybox:latest
-COPY --from=0 /go/src/github.com/percona/mongodb_exporter/bin/mongodb_exporter /bin/mongodb_exporter
-EXPOSE 9216
-ENTRYPOINT [ "/bin/mongodb_exporter" ]
-```
- - Добавил Prometheus мониторинг сервисов comment, post, ui с помощью blackbox экспортера - monitoring/blackbox_exporter/Dockerfile:
- ```bash
-FROM prom/blackbox-exporter:v0.14.0
-COPY config.yml /etc/blackbox_exporter/config.yml
-```
- - Создал файл Makefile для билда всех, билда по одному и пуша всех использованных имиджей в ДЗ:
+- Подключил InfuxDB в Grafana. Использовал готовый дашбоард - https://grafana.com/dashboards/3056. Загрузил его в grafana/dashboards/Docker_Metrics_telegraf.json. Метрик меньше чем в cAdvisor. Но возможно я не глубоко копал. Т.к. telegraf мне показался очень большим комбайном.
 
-<details><summary>Makefile</summary><p>
-
-```bash
-export USERNAME=sbelyanin
-export MONGOD_EXP=v0.6.3 
-export BLACKBOX_EXP=v0.14.0
-export COMPOSE_TLS_VERSION=TLSv1_2
-
-
-build-all:
-	docker build -t $(USERNAME)/prometheus monitoring/prometheus/
-	docker build -t $(USERNAME)/comment src/comment/
-	docker build -t $(USERNAME)/post src/post-py/
-	docker build -t $(USERNAME)/ui src/ui/
-	docker build -t $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP) monitoring/blackbox_exporter/
-	docker build -t $(USERNAME)/mongod_exporter:$(MONGOD_EXP) monitoring/mongod_exporter/
-#
-build-ui:
-	docker build -t $(USERNAME)/ui src/ui/
-build-comment:
-	docker build -t $(USERNAME)/comment src/comment/
-build-post:
-	docker build -t $(USERNAME)/post src/post-py/
-build-prometheus:
-	docker build -t $(USERNAME)/prometheus monitoring/prometheus/
-build-blackbox-exp:
-	docker build -t $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP) monitoring/blackbox_exporter/
-build-mongod-exp:
-	docker build -t $(USERNAME)/mongod_exporter:$(MONGOD_EXP) monitoring/mongod_exporter/
-
-push-all:
-	docker push $(USERNAME)/prometheus
-	docker push $(USERNAME)/comment
-	docker push $(USERNAME)/post
-	docker push $(USERNAME)/ui
-	docker push $(USERNAME)/blackbox_exporter:$(BLACKBOX_EXP)
-docker push $(USERNAME)/mongod_exporter:$(MONGOD_EXP)
-
-```
-</p></details>
+- Создал алерт на превышение 6 ошибочных http запросов в минуту и добавил приемник с простым роутингом на smtp службы gmail. 

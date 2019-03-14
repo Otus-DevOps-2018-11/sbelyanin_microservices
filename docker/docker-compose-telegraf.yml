@@ -1,0 +1,40 @@
+version: '3.3'
+
+services:
+  influxdb:
+    image: influxdb
+    container_name: influxdb
+    restart: always
+    ports:
+      - 8086:8086
+    networks:
+      back_net:
+    volumes:
+      - influxdb-volume:/var/lib/influxdb
+
+  telegraf:
+    image: ${USERNAME}/telegraf
+    restart: always
+    container_name: telegraf
+    environment:
+      HOST_PROC: /rootfs/proc
+      HOST_SYS: /rootfs/sys
+      HOST_ETC: /rootfs/etc
+    hostname: myhostname
+    volumes:
+#      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/rootfs/sys:ro
+      - /proc:/rootfs/proc:ro
+      - /etc:/rootfs/etc:ro
+    networks:
+      back_net:
+
+volumes:
+  influxdb-volume:
+
+networks:  
+   back_net:
+      external:    
+        name: back_net
+
