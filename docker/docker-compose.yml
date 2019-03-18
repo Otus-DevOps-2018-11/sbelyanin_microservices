@@ -19,6 +19,13 @@ services:
       - ${HOST_PORT}:9292
     networks:
       - front_net
+    environment:  
+      - ZIPKIN_ENABLED=${ZIPKIN_ENABLED}
+    logging:
+      driver: "fluentd"     
+      options:        
+        fluentd-address: localhost:24224        
+        tag: service.ui
 
   post:
     image: ${USERNAME}/post
@@ -29,9 +36,18 @@ services:
       front_net:
        aliases:
         - post
+    environment:
+      - ZIPKIN_ENABLED=${ZIPKIN_ENABLED}
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: service.post
 
   comment:
     image: ${USERNAME}/comment
+    environment:
+      - ZIPKIN_ENABLED=${ZIPKIN_ENABLED}
     networks:
       front_net:
         aliases:

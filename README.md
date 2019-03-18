@@ -2,16 +2,150 @@
 # sbelyanin_microservices
 sbelyanin microservices repository
 
-## HW №18
+## HW №19
 
-# Мониторинг приложения и инфраструктуры
- - Разделил файлы Docker compose на два файла, один с приложением, другой с системой мониторинга:
+# Логирование и распределенная трассировка
+# Подготовка окружения
+ - Обновил код в src/ из внешнего репозитария
+ - Обновил имиджи ui, comment и post
+ - Создал Docker хост в GCE используя docker-machine
+#  Сбор структурированных логов
+ - Создал файл с описанием системы логирования:
 
-<details><summary>docker-compose.yml</summary><p>
+<details><summary>docker/docker-compose-logging.yml</summary><p>
+
+```bash
+version: '3'
+services:
+  fluentd:
+    image: ${USERNAME}/fluentd
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    networks:
+      back_net:
+       aliases:
+        - fluent
+
+  elasticsearch:
+    image: elasticsearch:6.6.2
+    expose:
+      - 9200
+    networks:
+      back_net:
+       aliases:
+        - elasticsearch
+
+  kibana:
+    image: kibana:6.6.2
+    ports:
+      - "5601:5601"
+    networks:
+      back_net:
+       aliases:
+        - kibana
+
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      back_net:
+       aliases:
+        - zipkin
+      front_net:
+       aliases:
+        - zipkin
+
+networks:
+   back_net:
+      external:
+        name: back_net
+   front_net:
+      external:
+name: front_net
+
+```
+</p></details>
+ 
+ - Создал кастомный образ для fluentd:
+ 
+<details><summary>logging/fluentd/Dockerfile</summary><p>
+
+```bash
+FROM fluent/fluentd:v0.12
+RUN gem install fluent-plugin-elasticsearch --no-rdoc --no-ri --version 1.9.5 
+RUN gem install fluent-plugin-grok-parser --no-rdoc --no-ri --version 1.0.0 
+ADD fluent.conf /fluentd/etc
+```
+</p></details>
+
+ - И его конфигурацию:
+<details><summary>logging/fluentd/fluent.conf</summary><p>
+
+```bash
+<source>
+  @type forward
+  port 24224
+  bind 0.0.0.0
+</source>
+
+<filter service.post>
+  @type parser
+  format json
+  key_name log
+</filter>
+
+<filter service.ui>
+  @type parser
+  key_name log
+  format grok
+  grok_pattern %{RUBY_LOGGER}
+</filter>
+
+<filter service.ui>
+  @type parser
+  format grok
+  grok_pattern service=%{WORD:service} | event=%{WORD:event} | request_id=%{GREEDYDATA:request_id} | message='%{GREEDYDATA:message}'
+  key_name message
+  reserve_data true
+</filter>
+
+<filter service.ui>
+  @type parser
+  format grok
+  grok_pattern service=%{WORD:service} | event=%{WORD:event} | path=%{PATH:path} | request_id=%{GREEDYDATA:request_id} | remote_addr=%{IP:remote_addr} | method= %{WORD:method} | response_st$
+  key_name message
+  reserve_data true
+</filter>
+
+<match *.**>
+  @type copy
+  <store>
+    @type elasticsearch
+    host elasticsearch
+    port 9200
+    logstash_format true
+    logstash_prefix fluentd
+    logstash_dateformat %Y%m%d
+    include_tag_key true
+    type_name access_log
+    tag_key @log_name
+    flush_interval 1s
+  </store>
+  <store>
+    @type stdout
+  </store>
+</match>
+```
+</p></details>
+
+-  Настроил драйвер для логирования всех сервисов внутри compose-файла:
+
+<details><summary>docker/docker-compose.yml</summary><p>
 
 ```bash
 version: '3.3'
-
 
 services:
   post_db:
@@ -31,6 +165,13 @@ services:
       - ${HOST_PORT}:9292
     networks:
       - front_net
+    environment:  
+      - ZIPKIN_ENABLED=${ZIPKIN_ENABLED}
+    logging:
+      driver: "fluentd"     
+      options:        
+        fluentd-address: localhost:24224        
+        tag: service.ui
 
   post:
     image: ${USERNAME}/post
@@ -41,9 +182,18 @@ services:
       front_net:
        aliases:
         - post
+    environment:
+      - ZIPKIN_ENABLED=${ZIPKIN_ENABLED}
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: service.post
 
   comment:
     image: ${USERNAME}/comment
+    environment:
+      - ZIPKIN_ENABLED=${ZIPKIN_ENABLED}
     networks:
       front_net:
         aliases:
@@ -62,189 +212,53 @@ networks:
     back_net:
       external:
 name: back_net
+
 ```
 </p></details>
 
-<details><summary>docker-compose-monitoring.yml</summary><p>
+# Визуализация логов
+ - Настроил индексирование логов с сервиса fluent в Kibana.
+ - Посмотрел логи и опробовал различные фильры по полям в Kibana.
+ - Настроил фильтр для парсинга json логов, приходящих от post сервиса, в конфиг fluentd.
+# Неструктурированные логи
+ - Настроил парсинг неструктурированных логов при помощи grok шаблонов для UI сервиса.
+# Распределенная трасировка
+ - Добавил в compose-файл для сервисов логирования сервис распределенного трейсинга Zipkin.
+ - Добавил в compose-файл для сервисов приложения переменную окружения ZIPKIN_ENABLED=true (для включения в коде блоков отвечающих за передачу данных в Zipkin).
+ - Просмотрел некоторые span, которые представляют собой одну операцию, которая происходит при обработке запроса.
+
+№ Задания с * и ***
+ - Настроил парсинг сообщений от сервиса UI.
+ - Настроил систему распределенной трасировки Zipkin.
+ - Установил имиджы приложения с "багам" внутри. В процессе трассировки было выявленно что сервис post "замораживался" на ~3 секунды при чтении поста. в ходе изучения исходников баг был обнаружен и закоментирован. После пересборки имиджей время чтения поста из базы стало приемлемым. Баг:
+ 
+<details><summary>src/bagged/post/post_app.py</summary><p>
 
 ```bash
+....
+def find_post(id):
+    start_time = time.time()
+    max_resp_time = 3
 
-106 lines (95 sloc) 2.05 KB
-version: '3.3'
-
-services:
-  prometheus:
-    image: ${USERNAME}/prometheus
-    ports:
-      - '9090:9090'
-    volumes:
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention=1d'
-    networks:
-      front_net:
-      back_net:
-
-  node-exporter:
-    image: prom/node-exporter:v0.15.2
-    user: root
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
-    networks:
-      back_net:
-
-  mongod_exporter:
-    image: ${USERNAME}/mongod_exporter:${MONGOD_EXP}
-    environment:
-      - MONGODB_URI
-    networks:
-      back_net:
-       aliases:
-        - mongod_exporter
-
-  blackbox_exporter:
-    image: ${USERNAME}/blackbox_exporter:${BLACKBOX_EXP}
-    expose:
-      - "9115"
-    networks:
-      back_net:
-       aliases:
-        - blackbox
-      front_net:
-       aliases:   
-        - blackbox
-
-  cadvisor:
-    image: google/cadvisor:v0.29.0
-    volumes:
-      - '/:/rootfs:ro'
-      - '/var/run:/var/run:rw'
-      - '/sys:/sys:ro'
-      - '/var/lib/docker/:/var/lib/docker:ro'
-    ports:
-      - '8080:8080'
-    networks:
-      back_net:
-       aliases:
-        - cadvisor
-
-  grafana:
-    image: grafana/grafana:5.0.0
-    volumes:
-      - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=Gra_fanA
-    depends_on:
-      - prometheus
-    ports:
-      - 3000:3000
-    networks:
-      back_net:
-       aliases:
-        - grafana
-
-  alertmanager:
-    image: ${USERNAME}/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/config.yml'
-    ports:
-      - 9093:9093
-    networks:
-      back_net:
-       aliases:
-        - alertmanager
-
-volumes:
-  prometheus_data:
-  grafana_data:
-
-networks:
-   front_net:
-      external:
-        name: front_net   
-   back_net:
-      external:    
-        name: back_net
+    try:
+        post = app.db.find_one({'_id': ObjectId(id)})
+    except Exception as e:
+        log_event('error', 'post_find',
+                  "Failed to find the post. Reason: {}".format(str(e)),
+                  request.values)
+        abort(500)
+    else:
+        stop_time = time.time()  # + 0.3
+        resp_time = stop_time - start_time
+#        median_time = time.sleep(max_resp_time)
+# This is bug^^^^^^^^^^^^^^^^^^^^^^^
+        app.post_read_db_seconds.observe(resp_time)
+log_event('info', 'post_find',
+....
 
 ```
 </p></details>
 
-# Мониторинг Docker контейнеров
- - Настроил сервис сбора метрик с Docker хоста при помощи cAdvisor и прописал его в цели для сборки метрик в Prometheus.
- - Проверил что метрики контейнеров собираются мониторингом.
- 
-# Визуализация метрик
-- Добавил сервис визуализации Grafana.
-- Добавил источник данных Prometheus в Grafana
-
-# Сбор метрик работы приложения и бизнесметрик
-- Добавил в систему визуализации дашбоард "Docker and system monitoring". Загрузил данный дашбоард в grafana/dashboards/DockerMonitoring.json
-- Создал два дашбоарда с мониторингом сервиса и бизнес логики приложения. Поместил их в grafana/dashboards/ 	UI_Service_Monitoring.json и grafana/dashboards/Business_Logic_Monitoring.json
- 
-# Настройка и проверка алертинга
-- Утановил и настроил дополнительный компонет для системы мониторинга Alertmanager. Настроил отправку сообщей в slack канал через web hook.
-- Запушил все исполдьзуемые кастомные контейнеры на Docker hub - https://hub.docker.com/u/sbelyanin
-
-# Задание со *
-- Добавил в MakeFile билды и публикации новых сервисов.
-- Добавил сбор метрик напрямую из Docker. Включил даннную опцию в докер демоне и прописал сбор метрик с него в prometheus. Использовал для визуализации готовый дашбоард - https://grafana.com/dashboards/1229. Количество метрик на порядок меньше чем в cAdvisor. Дашбоард скопировал в grafana/dashboards/docker_engine_metrics.json
-- Добавил сбор метрик при помощи telegraf. Дополнительно поставил InfluxDB. Оформил все в виде отдельного docker compose файла:
-<details><summary>docker-compose-telegraf.yml</summary><p>
-
-```bash
-version: '3.3'
-
-services:
-  influxdb:
-    image: influxdb
-    container_name: influxdb
-    restart: always
-    ports:
-      - 8086:8086
-    networks:
-      back_net:
-    volumes:
-      - influxdb-volume:/var/lib/influxdb
-
-  telegraf:
-    image: ${USERNAME}/telegraf
-    restart: always
-    container_name: telegraf
-    environment:
-      HOST_PROC: /rootfs/proc
-      HOST_SYS: /rootfs/sys
-      HOST_ETC: /rootfs/etc
-    hostname: myhostname
-    volumes:
-#      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /sys:/rootfs/sys:ro
-      - /proc:/rootfs/proc:ro
-      - /etc:/rootfs/etc:ro
-    networks:
-      back_net:
-
-volumes:
-  influxdb-volume:
-
-networks:  
-   back_net:
-      external:    
-        name: back_net
-
-
-```
-</p></details>
-
-- Подключил InfuxDB в Grafana. Использовал готовый дашбоард - https://grafana.com/dashboards/3056. Загрузил его в grafana/dashboards/Docker_Metrics_telegraf.json. Метрик меньше чем в cAdvisor. Но возможно я не глубоко копал. Т.к. telegraf мне показался очень большим комбайном.
-
-- Создал алерт на превышение 6 ошибочных http запросов в минуту и добавил приемник с простым роутингом на smtp службы gmail. 
+ - Во время проверки ДЗ средствами Travic CI - не проходил тест файла конфигурации fluent - fluent.conf. Символы "\\" в патерне и в тестируемом файле не сопоставляются инспектом. То что указанно в домашнем задании "\\|", заменил на "|", проверил - все работает.
+ - Также для запуска эластика нужно увеличить параметр ядра на хостовой системе - "docker-machine ssh logging sudo sysctl -w vm.max_map_count=262144".
+ - Также при пуле имиджей нужно точно установить версию Kibana и Elasticsearch, latest не работает.
