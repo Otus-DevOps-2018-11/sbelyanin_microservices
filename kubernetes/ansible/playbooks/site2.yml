@@ -1,0 +1,14 @@
+---
+- import_playbook: up_inventory.yml
+- import_playbook: cert.yml
+- import_playbook: auth_config.yml
+- import_playbook: etcd.yml
+- import_playbook: boot_control.yml
+- import_playbook: health_nginx.yml
+- import_playbook: rbac.yml
+- import_playbook: lbalancer.yml
+- import_playbook: boot_worker.yml
+- import_playbook: list_worker.yml
+- import_playbook: kubectl.yml
+- import_playbook: pod_routes.yml
+- import_playbook: pod_coredns.yml

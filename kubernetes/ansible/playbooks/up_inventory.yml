@@ -1,0 +1,17 @@
+---
+- name: Update inventory
+  hosts: localhost
+  tasks:
+   - name: Update inventory
+     become: true
+     become_user: admin
+     shell: |
+       ../inventory.py --refresh-cache
+     register: inventory
+     tags:
+       - up_inventory
+   - name: Show status of inventory
+     debug:
+       var: inventory.stdout
+     tags:
+       - up_inventory

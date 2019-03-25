@@ -1,0 +1,12 @@
+---
+- name: List the registered Kubernetes nodes
+  hosts: tag_controller
+  become: true
+  become_user: admin
+  tasks:
+   - name: Get registered Kubernetes nodes
+     shell: |
+       cd ~
+       kubectl get nodes --kubeconfig admin.kubeconfig
+     register: nodes
+   - debug: var=nodes.stdout

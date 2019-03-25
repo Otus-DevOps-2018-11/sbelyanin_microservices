@@ -1,0 +1,189 @@
+---
+- name: Bootstrapping the Kubernetes Worker Nodes
+  hosts: tag_worker 
+  become: true
+  become_user: admin
+  gather_facts: false
+  pre_tasks:
+   - name: Install python2 for Ansible
+     become: true
+     become_user: root
+     raw: bash -c "test -e /usr/bin/python || (apt -qqy update && apt install -qqy python-minimal)"
+     register: output
+     changed_when: output.stdout != ""
+   - name: Gathering Facts
+     setup:
+  tasks:
+   - name: Install socat conntrack ipset
+     become: true
+     become_user: root
+     apt:
+       name: ['socat','conntrack','ipset']
+       state: present
+     tags:
+       - boot_worker
+   - name: Download Worker Binaries
+     get_url:
+       url: "{{ item }}"
+       dest: ~/
+     with_items:
+       - "https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.12.0/crictl-v1.12.0-linux-amd64.tar.gz"
+       - "https://storage.googleapis.com/kubernetes-the-hard-way/runsc-50c283b9f56bb7200938d9e207355f05f79f0d17"
+       - "https://github.com/opencontainers/runc/releases/download/v1.0.0-rc5/runc.amd64"
+       - "https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz"
+       - "https://github.com/containerd/containerd/releases/download/v1.2.0-rc.0/containerd-1.2.0-rc.0.linux-amd64.tar.gz"
+       - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubectl"
+       - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-proxy"
+       - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubelet"
+     tags:
+       - boot_worker
+   - name: Create directory
+     become: true
+     become_user: root
+     file:
+       path: "{{ item }}"
+       state: directory
+       owner: root
+       group: root
+       recurse: yes
+     with_items:
+       - "/etc/cni/net.d"
+       - "/opt/cni/bin"
+       - "/var/lib/kubelet"
+       - "/var/lib/kube-proxy"
+       - "/var/lib/kubernetes"
+       - "/var/run/kubernetes"
+       - "/etc/containerd/"
+     tags:
+       - boot_worker
+   - name: Install the worker binaries
+     shell: |
+       cd ~
+       sudo cp -f runsc-50c283b9f56bb7200938d9e207355f05f79f0d17 runsc
+       sudo cp -f runc.amd64 runc
+       sudo chmod +x kubectl kube-proxy kubelet runc runsc
+       sudo cp -f kubectl kube-proxy kubelet runc runsc /usr/local/bin/
+       sudo tar -xvf crictl-v1.12.0-linux-amd64.tar.gz -C /usr/local/bin/
+       sudo tar -xvf cni-plugins-amd64-v0.6.0.tgz -C /opt/cni/bin/
+       sudo tar -xvf containerd-1.2.0-rc.0.linux-amd64.tar.gz -C /
+
+       sudo cp -f ${HOSTNAME}-key.pem ${HOSTNAME}.pem /var/lib/kubelet/
+       sudo cp -f ${HOSTNAME}.kubeconfig /var/lib/kubelet/kubeconfig
+       sudo cp -f ca.pem /var/lib/kubernetes/
+     args:
+       executable: /bin/bash
+     tags:
+       - boot_worker
+
+   - name: Retrieve the Pod CIDR range for the current compute instance
+     command: 'curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/pod-cidr'
+     register: pod_cidr
+     tags:
+       - boot_worker
+
+   - name: Create the bridge network configuration file
+     become: true
+     become_user: root
+     template:
+       src: ../template/10-bridge.conf.j2
+       dest: "/etc/cni/net.d/10-bridge.conf"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+   - name: Create the loopback network configuration file
+     become: true
+     become_user: root
+     template:
+       src: ../template/99-loopback.conf.j2
+       dest: "/etc/cni/net.d/99-loopback.conf"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+
+   - name: Create the containerd configuration file
+     become: true
+     become_user: root
+     template:
+       src: ../template/config.toml.j2
+       dest: "/etc/containerd/config.toml"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+
+   - name: Create the containerd.service systemd unit file
+     become: true
+     become_user: root
+     template:
+       src: ../template/containerd.service.j2
+       dest: "/etc/systemd/system/containerd.service"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+
+   - name: Create the kubelet-config.yaml configuration file
+     become: true
+     become_user: root
+     template:
+       src: ../template/kubelet-config.yaml.j2
+       dest: "/var/lib/kubelet/kubelet-config.yaml"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+   - name: Create the kubelet.service systemd unit file
+     become: true
+     become_user: root
+     template:
+       src: ../template/kubelet.service.j2
+       dest: "/etc/systemd/system/kubelet.service"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+   - name: Create the kube-proxy-config.yaml configuration file
+     become: true
+     become_user: root
+     template:
+       src: ../template/kube-proxy-config.yaml.j2
+       dest: "/var/lib/kube-proxy/kube-proxy-config.yaml"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+   - name: Create the kube-proxy.service systemd unit file
+     become: true
+     become_user: root
+     template:
+       src: ../template/kube-proxy.service.j2
+       dest: "/etc/systemd/system/kube-proxy.service"
+       owner: root
+       group: root
+     tags:
+       - boot_worker
+
+   - name: Start the Worker Services
+     become: true
+     become_user: root
+     systemd:
+       daemon_reload: yes
+       name: "{{ item }}"
+       state: started
+       enabled: yes
+     with_items:
+       - containerd 
+       - kubelet 
+       - kube-proxy
+     tags:
+       - boot_worker
+

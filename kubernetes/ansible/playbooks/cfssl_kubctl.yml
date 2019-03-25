@@ -1,0 +1,7 @@
+---
+- name: Installing the cfssl and kubectl
+  hosts: localhost
+  become: true
+  roles:
+   - kubectl
+   - cfssl

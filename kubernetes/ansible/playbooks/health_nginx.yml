@@ -1,0 +1,67 @@
+---
+- name: Enable HTTP Health Checks
+  hosts: tag_controller 
+  become: true
+  become_user: admin
+  gather_facts: false
+  pre_tasks:
+   - name: Install python2 for Ansible
+     become: true
+     raw: bash -c "test -e /usr/bin/python || (apt -qqy update && apt install -qqy python-minimal)"
+     register: output
+     changed_when: output.stdout != ""
+   - name: Gathering Facts
+     setup:
+  tasks:   
+   - name: Install nginx service
+     become: true
+     become_user: root
+     apt:
+       name: ['nginx']
+       state: present
+     tags:
+       - health_check
+
+   - name: Install site config
+     become: true
+     become_user: root
+     template:
+       src: ../template/kubernetes.default.svc.cluster.local.j2
+       dest: "/etc/nginx/sites-available/kubernetes.default.svc.cluster.local"
+       owner: root
+       group: root
+     tags:
+       - health_check
+
+   - name: Create symlink for site config
+     shell:  bash -c "ln -f -s /etc/nginx/sites-available/kubernetes.default.svc.cluster.local /etc/nginx/sites-enabled/"
+     become: true
+     become_user: root
+     args:
+        executable: /bin/bash
+     tags:
+       - health_check
+
+   - name: Enable and start nginx service
+     become: true
+     become_user: root
+     systemd:
+       daemon_reload: yes
+       name: "{{ item }}" 
+       state: started
+       enabled: yes
+     with_items:
+       - nginx
+     tags:
+       - health_check
+
+   - name: Verification
+     shell: 'cd ~ && kubectl get componentstatuses --kubeconfig admin.kubeconfig'
+     register: kube_contr
+   - debug:  var=kube_contr.stdout
+
+   - name: Verification
+     shell: 'cd ~ && curl -H "Host: kubernetes.default.svc.cluster.local" -i http://127.0.0.1/healthz'
+     register: kube_health
+   - debug:  var=kube_health.stdout
+

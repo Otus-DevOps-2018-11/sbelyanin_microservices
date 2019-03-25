@@ -1,0 +1,61 @@
+---
+- name: Install etcd
+  hosts: tag_controller 
+  become: true
+  become_user: admin
+  gather_facts: false
+  pre_tasks:
+   - name: Install python2 for Ansible
+     become: true
+     become_user: root
+     raw: bash -c "test -e /usr/bin/python || (apt -qqy update && apt install -qqy python-minimal)"
+     register: output
+     changed_when: output.stdout != ""
+   - name: Gathering Facts
+     setup:
+  tasks:
+   - name: Download and extract etcd
+     shell: |
+      cd ~
+      wget -q --show-progress --https-only --timestamping "https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz"
+      tar -xvf etcd-v3.3.9-linux-amd64.tar.gz
+      sudo mv etcd-v3.3.9-linux-amd64/etcd* /usr/local/bin/
+      sudo mkdir -p /etc/etcd /var/lib/etcd
+      sudo cp -f ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/
+     tags:
+       - etcd
+   - debug: var=hostvars[inventory_hostname]['ansible_facts']['hostname']
+   - debug: var=hostvars[inventory_hostname]['ansible_default_ipv4']['address']
+   - name: Install etcd services
+     become: true
+     become_user: root
+     template:
+       src: ../template/etcd.service.j2
+       dest: "/etc/systemd/system/etcd.service"
+       owner: root
+       group: root
+     tags:
+       - etcd
+   - name: Enable and start etcd services
+     become: true
+     become_user: root 
+     systemd:
+       daemon_reload: yes
+       name: etcd
+       state: started
+       enabled: yes
+     tags:
+       - etcd
+   - name: Get status of etcd
+     become: true
+     become_user: root
+     shell: "ETCDCTL_API=3 etcdctl member list --endpoints=https://127.0.0.1:2379 --cacert=/etc/etcd/ca.pem --cert=/etc/etcd/kubernetes.pem --key=/etc/etcd/kubernetes-key.pem"
+     register: etcd_st
+     tags:
+       - etcd
+   - name: Show status of etcd
+     debug:
+       var: etcd_st.stdout
+     tags:
+       - etcd
+

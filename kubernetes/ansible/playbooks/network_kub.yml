@@ -1,0 +1,7 @@
+---
+- name: Create network and firewall
+  hosts: localhost
+  become: true
+  become_user: admin
+  roles:
+   - network
