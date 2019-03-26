@@ -1,0 +1,10 @@
+---
+- name: Installing the Client Tools
+  hosts: localhost
+  tasks:
+   - name: Install list of packages
+     become: true
+     apt:
+       name: ['wget','coreutils','curl']
+       state: present
+#       update_cache: yes

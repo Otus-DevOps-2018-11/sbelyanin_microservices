@@ -1,0 +1,46 @@
+---
+- name: GCE Network
+  gce_net:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+    name: "{{ net_name }}"
+    mode: custom
+    subnet_region: "{{ region }}"
+    subnet_name: "{{ subnet_name }}"
+    ipv4_range: "{{ ipv4_range }}"
+    state: "present"
+  tags:
+    - network
+
+- name: GCE Firewall internal 
+  gce_net:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+    name: "{{ net_name }}"
+    fwname: "kubernetes-the-hard-way-allow-internal"
+    allowed: tcp;udp;icmp
+    state: "present"
+    src_range: ["{{ ipv4_range }}","{{ ipv4_ranget }}"]    
+
+- name: GCE Firewall external
+  gce_net:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+    name: "{{ net_name }}"
+    fwname: "kubernetes-the-hard-way-allow-external"
+    allowed: tcp:22;tcp:6443;icmp
+    state: "present"
+    src_range: [0.0.0.0/0]
+
+- name: GCE external ip
+  gce_eip:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+    name: kubernetes-the-hard-way 
+    region: "{{ region }}"
+    state: present
+

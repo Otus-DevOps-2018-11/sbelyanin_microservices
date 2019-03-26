@@ -1,0 +1,15 @@
+---
+cfssl_version: "R1.2"
+cfssljson_version: "R1.2"
+cfssl_checksum: "sha256:eb34ab2179e0b67c29fd55f52422a94fe751527b06a403a79325fed7cf0145bd"
+cfssljson_checksum: "sha256:1c9e628c3b86c3f2f8af56415d474c9ed4c8f9246630bd21c3418dbe5bf6401e"
+# Where to install "cfssl & cfssljson" binary
+cfssl_bin_directory: "/usr/local/bin"
+# Owner of binary
+cfssl_owner: "root"
+# Group of binary
+cfssl_group: "root"
+# Operarting system on which "cfssl" should run on
+cfssl_os: "linux" # use "darwin" for MacOS X, "windows" for Windows
+# Processor architecture "cfssl" should run on
+cfssl_arch: "amd64" # other possible values: "386","arm64","arm","ppc64le","s390x"

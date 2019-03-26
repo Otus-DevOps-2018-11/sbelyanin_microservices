@@ -1,0 +1,114 @@
+---
+- name: Bootstrapping the Kubernetes Control Plane
+  hosts: tag_controller 
+  become: true
+  become_user: root
+  gather_facts: false
+  pre_tasks:
+   - name: Install python2 for Ansible
+     become: true
+     raw: bash -c "test -e /usr/bin/python || (apt -qqy update && apt install -qqy python-minimal)"
+     register: output
+     changed_when: output.stdout != ""
+   - name: Gathering Facts
+     setup:
+  tasks:   
+   - name: Download and Install the Kubernetes Controller Binaries
+     get_url:
+       url: "{{ item }}"
+       dest: /usr/local/bin/
+       mode: 0755
+     tags:
+       - control
+     with_items:
+       - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-apiserver"
+       - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-controller-manager"
+       - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-scheduler"
+       - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubectl"
+
+   - name: Create directory
+     file:
+       path: "{{ item }}"
+       state: directory
+       owner: root
+       group: root
+       mode: 0770
+       recurse: yes
+     with_items:
+       - "/var/lib/kubernetes/"
+       - "/etc/kubernetes/config"
+     tags:
+       - control
+
+   - name: Copy files for Kubernetes Controls Services
+     become: true
+     become_user: admin
+     shell: |
+       cd ~
+       sudo cp -f ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem service-account-key.pem /var/lib/kubernetes/
+       sudo cp -f service-account.pem encryption-config.yaml kube-controller-manager.kubeconfig kube-scheduler.kubeconfig /var/lib/kubernetes/
+       #sudo bash -c "cd /var/lib/kubernetes/ && cp -f ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem service-account-key.pem service-account.pem encryption-config.yaml /home/dangel/"
+     args:
+       executable: /bin/bash
+     tags:
+       - control
+
+   - name: Install kube-apiserver services
+     become: true
+     become_user: root
+     template:
+       src: ../template/kube-apiserver.service.j2
+       dest: "/etc/systemd/system/kube-apiserver.service"
+       owner: root
+       group: root
+     tags:
+       - control
+
+   - name: Install kube-controller-manager services
+     become: true
+     become_user: root
+     template:
+       src: ../template/kube-controller-manager.service.j2
+       dest: "/etc/systemd/system/kube-controller-manager.service"
+       owner: root
+       group: root
+     tags:
+       - control
+
+   - name: Install kube-scheduler services
+     become: true
+     become_user: root
+     template:
+       src: ../template/kube-scheduler.service.j2
+       dest: "/etc/systemd/system/kube-scheduler.service"
+       owner: root
+       group: root
+     tags:
+       - control
+
+   - name: Install kube-scheduler config
+     become: true
+     become_user: root
+     template:
+       src: ../template/kube-scheduler.yaml.j2
+       dest: "/etc/kubernetes/config/kube-scheduler.yaml"
+       owner: root
+       group: root
+     tags:
+       - control
+
+   - name: Enable and start kube controls services
+     become: true
+     become_user: root
+     systemd:
+       daemon_reload: yes
+       name: "{{ item }}" 
+       state: started
+       enabled: yes
+     with_items:
+       - kube-apiserver
+       - kube-controller-manager
+       - kube-scheduler
+     tags:
+       - control
+

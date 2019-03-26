@@ -1,0 +1,9 @@
+---
+service_account_email: "87352832204-compute@developer.gserviceaccount.com"
+credentials_file: "~/gcp/infra.json"
+project_id: "docker-9"
+region: "europe-west2"
+subnet_name: "kubernetes"
+net_name: "kubernetes-the-hard-way"
+ipv4_range: '10.240.0.0/24'
+ipv4_ranget: '10.200.0.0/16'

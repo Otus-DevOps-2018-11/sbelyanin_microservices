@@ -1,0 +1,33 @@
+---
+- name: RBAC for Kubelet Authorization
+  hosts: tag_controller 
+  become: true
+  become_user: admin
+  gather_facts: false
+  pre_tasks:
+   - name: Install python2 for Ansible
+     become: true
+     raw: bash -c "test -e /usr/bin/python || (apt -qqy update && apt install -qqy python-minimal)"
+     register: output
+     changed_when: output.stdout != ""
+   - name: Gathering Facts
+     setup:
+  tasks:   
+   - name: Copy kubectl binary to destination directory
+     copy:
+       src: "../files/{{ item }}"
+       dest: "~/{{ item }}"
+       mode: 0755
+     tags:
+       - rbac
+     with_items:
+       - perm.rbac.sh
+       - auth.rbac.sh
+
+   - name: Install RBAC
+     shell: |
+        cd ~
+        ./perm.rbac.sh
+        ./auth.rbac.sh
+     tags:
+       - rbac

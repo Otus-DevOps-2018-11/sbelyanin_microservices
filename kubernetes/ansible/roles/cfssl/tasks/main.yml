@@ -1,0 +1,36 @@
+---
+- name: Install CFSSL
+  become: true
+  get_url:
+    url: "https://pkg.cfssl.org/{{ cfssl_version }}/cfssl_{{ cfssl_os }}-{{ cfssl_arch }}"
+    checksum: "{{ cfssl_checksum }}"
+    dest: "{{ cfssl_bin_directory }}/cfssl"
+    mode: 755
+    owner: "{{ cfssl_owner }}"
+    group: "{{ cfssl_group }}"
+  tags:
+    - cfssl
+
+- name: Install CFSSL json
+  become: true
+  get_url:
+    url: "https://pkg.cfssl.org/{{ cfssljson_version }}/cfssljson_{{ cfssl_os }}-{{ cfssl_arch }}"
+    checksum: "{{ cfssljson_checksum }}"
+    dest: "{{ cfssl_bin_directory }}/cfssljson"
+    mode: 755
+    owner: "{{ cfssl_owner }}"
+    group: "{{ cfssl_group }}"
+  tags:    
+    - cfssl
+
+
+- name: Get version of CFSSL
+  shell: "cfssl version"
+  register: cfssl_version
+  tags:    
+    - cfssl
+- name: Show version of CFSSL
+  debug:
+    var: cfssl_version.stdout
+  tags:    
+    - cfssl
