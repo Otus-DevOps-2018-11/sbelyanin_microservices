@@ -99,6 +99,13 @@ replicaset.apps/ui-86548c47b         3         3         3       4m34s
 
  - Запустить reddit в Kubernetes
 
+
+``` Подключение к proxy:
+
+http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy 
+
+
+
 <details><summary>k8s</summary><p>
 
 ```bash
@@ -107,4 +114,30 @@ replicaset.apps/ui-86548c47b         3         3         3       4m34s
 ```
 </p></details>
 
+## Задание со *
+
+<details><summary>k8s</summary><p>
+
+```bash
+
+kubectl get clusterrolebinding kubernetes-dashboard -n kube-system -o yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: "2019-03-28T09:39:46Z"
+  name: kubernetes-dashboard
+  resourceVersion: "6599"
+  selfLink: /apis/rbac.authorization.k8s.io/v1/clusterrolebindings/kubernetes-dashboard
+  uid: 6c3bf6c3-513d-11e9-8d1d-42010a9a012d
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kubernetes-dashboard
+  namespace: kube-system
+
+```
+</p></details>
 
