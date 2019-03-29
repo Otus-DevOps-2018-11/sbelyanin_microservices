@@ -1,5 +1,5 @@
 provider "google" {
-  version = "1.4.0"
+  version = "1.20.0"
   project = "${var.project}"
   region  = "${var.region}"
 }
@@ -16,13 +16,17 @@ resource "google_container_cluster" "primary" {
     password = ""
   }
 
-
   addons_config {
     http_load_balancing {
-      disabled = true
+      disabled = false
     }
+
     horizontal_pod_autoscaling {
-      disabled = true
+      disabled = false
+    }
+
+    network_policy_config {
+      disabled = false
     }
 
     kubernetes_dashboard {
@@ -30,34 +34,20 @@ resource "google_container_cluster" "primary" {
     }  
   }
 
-
-
   node_config {
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/compute",
-      "https://www.googleapis.com/auth/devstorage.read_only",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring",
-    ]
-
-  }
-}
-
-resource "google_container_node_pool" "primary_preemptible_nodes" {
-  name       = "kube-node-pool"
-  zone       = "${var.region}-${var.zone}"
-  cluster    = "${google_container_cluster.primary.name}"
-  node_count = 2
-
-  node_config {
-    preemptible  = true
     machine_type = "n1-standard-1"
+    image_type   = "COS"
+    disk_type    = "pd-standard"
+    disk_size_gb = "20"
 
     oauth_scopes = [
       "https://www.googleapis.com/auth/compute",
       "https://www.googleapis.com/auth/devstorage.read_only",
       "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring",
+      "https://www.googleapis.com/auth/servicecontrol",
+      "https://www.googleapis.com/auth/service.management.readonly",
+      "https://www.googleapis.com/auth/trace.append",
     ]
   }
 }
