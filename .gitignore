@@ -1,3 +1,4 @@
+tls.*
 .env
 src/utils/
 variables.json
