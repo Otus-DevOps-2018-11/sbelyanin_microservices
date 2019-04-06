@@ -2,62 +2,28 @@
 # sbelyanin_microservices
 sbelyanin microservices repository
 
-## HW №22
-## Kubernetes. Networks, Storages.
+## HW №23
 
-### LoadBalancer Service, Ingress Controller, Secret, TLS
+## CI/CD в Kubernetes. Интеграция Kubernetes в GitlabCI.
 
- - Убедился, что при отключенном kube-dns сервисе связность между компонентами reddit-app пропадет.
- - Настроил Service UI с использованием LoadBalancer - внешний облачный балансировщик нагрузки, как единую точку входа на сервисы.
- - Создал Ingress контролер для сервиса UI - для балансировки нагрузки на ноды для одного сервиса.
- - Перенастроил Ingress Controller для возможности управлять трафиком на уровне HTTP
- - Создал сертификат используя IP как CN и загрузил его в кластер kubernetes
- - Настроил Ingress на прием только HTTPS траффика
- 
-### Network Policies
+### Работа с Helm.
 
- - Включил network-policy для GKE
- - Создал и применил сетевую политику для mongodb, чтобы ограничить подключение только с post и comment сервиса. 
+ -  
 
-### PersistentVolumes, PersistentVolumeClaims 
+### Развертывание Gitlab в Kubernetes 
 
- - Настроил для mongodb Volume emptyDir
- - Проверил что используя Volume emptyDir данные уничтожаются вместе с уничтожением пода.
- - Создал диск в Google Cloud и добавил его в волум mongodb как gcePersistentDisk.
- - Проверил что используя gcePersistentDisk данные не удаляются вместе с подом.
- - Используя механизм PersistentVolume и PersistentVolumeClaim для выделения дисковых ресурсов с хранилища по запросу.
- - Создал StorageClass Fast для динамического выделения хранилища с SSD дисками сервисам в кластере.
- - Создал описание PersistentVolumeClaim для работы с StorageClass Fast.
+ - 
+
+### Запуск CI/CD конвейера в Kubernetes 
+
+ - 
 
 ## Задание со *
- - Объект Secret описал в виде Kubernetes манифеста:
+## Использование Gitlab Pipeline triggers API
 
-<details><summary>create ui-ingress-secret.yml</summary><p>
+<details><summary>spoller</summary><p>
 
 ```bash
-
- - "kubectl create secret tls ui-ingress --key tls.key --cert tls.crt -n dev --dry-run=true -o yaml > ui-ingress-secret.yml"
- - "kubectl get secret ui-ingress -n dev -o yaml > ui-ingress-secret.yml" 
 
 ```
 </p></details> 
-
-<details><summary>ui-ingress-secret.yml</summary><p>
-
-```bash
- 
- apiVersion: v1
-data:
-  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURFVENDQWZtZ0F3SUJBZ0lVRUMyWDJjQnlhRnFqMmFZVU5QWGhCZlQyTlUwd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0dERVdNQlFHQTFVRUF3d05NelV1TWpReExqVXdMakl4TXpBZUZ3MHhPVEF6TWpreE1EUTVOREJhRncweQpNREF6TWpneE1EUTVOREJhTUJneEZqQVVCZ05WQkFNTURUTTFMakkwTVM0MU1DNHlNVE13Z2dFaU1BMEdDU3FHClNJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUURKaWtwUHdEWldFQzlFMXVzaDBVb1RUaGltME5QQTFOK1EKdFphaFZyaDczRENQaEc1b3pYUHZFckwzVE40cC84angrNVNGVCtYdHhOZytEMkVCdFh1L21zYkNMek5SaW5WMApIVC9hUWlONTdiNkFGd0REb01aNUxoTEtUOXhMVGY0bURZcFVVc0pSNE9pK2I0OS9IdUhxWFVVNVBNdnBLZWtKClJPb0RlbmZyR0wzYnlUc1h0RUFHMG43Mm9aYWRGc3g4Q0ZsaWxZb0xPcUp5b3Z3R2FYbXIrdjRMT1pIRWhOcHMKTXNKT0JzY00yU1ZuYjdRclZyT0FLU1ZNYkFaL0hCdnlSam40K2c2bG1pc213N1FZa09PbzI3ek11NVFBejhWdwpWd2k3KzFXQVdFUXNML2I3YWprdElhTTNtZWh2U2ZGYlZXYnVXa1dDb1pzdzRtQmM4blJyQWdNQkFBR2pVekJSCk1CMEdBMVVkRGdRV0JCUVRiRjdobm5LdU1jQVJzZEF2MlFlelNsanFoVEFmQmdOVkhTTUVHREFXZ0JRVGJGN2gKbm5LdU1jQVJzZEF2MlFlelNsanFoVEFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQTBHQ1NxR1NJYjNEUUVCQ3dVQQpBNElCQVFDdThJUG1qMXFWUTh2SWM2UHpsWUtnMTlFaWUzQStkSWZRcVVYTTRuUEVhd21WWFpmZlpINlppNDJnCkJTOHNlejZQSzZoOHhhMWs2NHJJcE9INCtOR3EzVUZudURzNUhNN3lXQS95TndtNzNWVUgvOVRjOVUrZDFHdXIKU0k1bUFqdklnaStBUldBQWVXaEN5YkVkY3JYOVNaY3BVTElHY2Z5cG5EUGQzaGRVZU9qc21SODlPQkErdzhrYwpPODlEY0htRVlpVTNHaDJpQmRraE01VHZESUpHcFFtbkMvZXRKaXlLS2MyWEh5cHA2dGlJWVpTT3l3YllNZFEwCjlDZjRlMklMdGlPa2k5UWluMzI4WVlnM0xOekNyd3ArZ0d5ZE5wQmY3UmFQWTVhOWYwdDNmaGZXb053SEhVcWYKaFhDZUJpdFp2a09tZCtXWW9XcU9JK3h6MHBRcQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
-  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktjd2dnU2pBZ0VBQW9JQkFRREppa3BQd0RaV0VDOUUKMXVzaDBVb1RUaGltME5QQTFOK1F0WmFoVnJoNzNEQ1BoRzVvelhQdkVyTDNUTjRwLzhqeCs1U0ZUK1h0eE5nKwpEMkVCdFh1L21zYkNMek5SaW5WMEhUL2FRaU41N2I2QUZ3RERvTVo1TGhMS1Q5eExUZjRtRFlwVVVzSlI0T2krCmI0OS9IdUhxWFVVNVBNdnBLZWtKUk9vRGVuZnJHTDNieVRzWHRFQUcwbjcyb1phZEZzeDhDRmxpbFlvTE9xSnkKb3Z3R2FYbXIrdjRMT1pIRWhOcHNNc0pPQnNjTTJTVm5iN1FyVnJPQUtTVk1iQVovSEJ2eVJqbjQrZzZsbWlzbQp3N1FZa09PbzI3ek11NVFBejhWd1Z3aTcrMVdBV0VRc0wvYjdhamt0SWFNM21laHZTZkZiVldidVdrV0NvWnN3CjRtQmM4blJyQWdNQkFBRUNnZ0VBZk5YTjVjdzNXK08yZzd0ajlaUi9mNm0yRjAzdWU5amZpZkVRbG1yeTVyV2kKMXFLL0NPZUowaUlRL0tGK1V5Rit4SFNDc0hpbkFUb1dmNHBqR2YzaDR2THAva25pVGJXbnZ2NkhHSmd6QlVrLwo0SE5mSTgyb1lsTXBqR3NmRnYzK1dHKzJxVGlCNk5tWkVLeGxnK1lMSlhJVWVMbXh6SUVMT1pTWUp3TnEyQkZtCmdGVG4xa3JMTnpIdkdmNmZkT2tTeEZGbG0xY3RNc0U4clR6T1hvMUVBU3Y1Vit3bVEyU2JOL0o0bFoyajZlVTcKOUpYandzVlhMZG4yUjliY1IzY0hhMnNXNHhMTHlrTWh0dWRwQWUvQUh6M01iSno4d2ZlRmtGNElvVjlrRlk0SgpZTDJNL2lUVVZPWjh3RERzZ2dEWW5Nc1RYRGlYVXNzMVZCeUZOQk9TZ1FLQmdRRDZUSnVSTXduV1lPeFZBZWs0ClVyMHJFeTlXZjAvZ1NMb2pSc0lKWDVBUWhraW9CUzc5UnU4SlgvSmNKRTRwOU1qT2ZwWFhpSzR0NUw4Sm5aRDUKOFRMNEgyZDNvcWltRXU2L1VQZWkzVEVQT3llZXB1czdBZlVlTWl5M2ZNbCt5MU02OGhRS3VOZEcyQVBTbkJJMwpodlBHcVE0aHpVMUZKZVdwSG0yZDdLSENDd0tCZ1FET0lXTjM1c3NSOEh1OGJYMFJIY0xJM2EyWlRWMS9hMXVvCm5SNXBldVZ6elY2NUlvWWxQOXBweU1BV01xbUJzSVRZRFZwb2lBTm95c3NQcHRvZGJaYTEyY3FUcm9pQ0NBTXEKL2phNGl5VVhrb0lJNnYzdkZLV29YYlpUSGdYc3VSRk5aTXdXRDNzbjgyYVVhbHJzbGNQckt5S2hFVWtEK1MzRApCL0FrSzdqeklRS0JnRWp6WFFBRHpTRXpYSTRtSVhBdUJUNXh1QUZRMTluNXVHNmhwOW9OaFRLYndMOWZ5Mk04CmNsemNId29sOXJZWnh4RVFLZUlJenlOSElUclBOcnJ5UnJXMGlYWi83UUdDVVIxbm50VlQvSUdBN3pvNVVpUC8KblE1dzkwRi9XRWJoUWQvVFFHNGprM0x0Y0tmSW56S1ozYUVRRXJOZFgrRUFlNkEvNHhqOUorUWpBb0dBQVNYawpkTzEvSWdseDF2blJJWUJGN25KMW5nMzFRRmxydUVPdndLeWpqSUtQVFg2b3VwcGhjQWRqTW54enZ6b3BjejZYCnkwOCtuWjNMaGJuTEt6REtEeGM0YnB3aFBJQW83RnRnR0tVRnZ0emRCb213Z2wxZUV0TDZ5Zm0zMUxxdkl2dzEKdXNXNVRONnBLcGh4Q3pKR1ZnLzJjR2sxTytWdVlOQ3hnTElScEtFQ2dZRUFnL2ltSU1nMWxNdHBCeW5Obkh3cwp4eUl1RjRjY1VSWXBVNGFXTU9wQVYvRGFvS3dzYzFWclpNNnFxdE0xejBzZ1MyWVdOdVdBWUpoWUFMS2d6TVZLCi83bEZRRVRubUhESTNVbURtM0ZJeXpsakc3dDRUMzRqbkx3YzVnRENaZ2VxTmRmYlBtVG5hVTI5NlRKL0NpRE0KbXlLdFhXWWp6ZmZWeUJScEwzd2hpams9Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
-kind: Secret
-metadata:
-  creationTimestamp: null
-  name: ui-ingress
-  namespace: dev
-type: kubernetes.io/tls
-
- 
-```
-</p></details> 
- 

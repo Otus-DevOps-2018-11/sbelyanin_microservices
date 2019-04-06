@@ -1,0 +1,11 @@
+---
+service:
+  internalPort: 5000
+  externalPort: 5000
+
+image:
+  repository: sbelyanin/post
+  tag: latest
+
+databaseHost:
+

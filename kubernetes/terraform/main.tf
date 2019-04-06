@@ -8,7 +8,7 @@ provider "google" {
 resource "google_container_cluster" "primary" {
   name   = "kube-gke-cluster"
   zone = "${var.region}-${var.zone}"
-  initial_node_count = 2
+#  initial_node_count = 2
 
   # Setting an empty username and password explicitly disables basic auth
   master_auth {
@@ -34,22 +34,35 @@ resource "google_container_cluster" "primary" {
     }  
   }
 
-  node_config {
-    machine_type = "n1-standard-1"
-    image_type   = "COS"
-    disk_type    = "pd-standard"
-    disk_size_gb = "20"
+#  node_config {
+#    machine_type = "n1-standard-1"
+#    image_type   = "COS"
+#    disk_type    = "pd-standard"
+#    disk_size_gb = "20"
 
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/compute",
-      "https://www.googleapis.com/auth/devstorage.read_only",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring",
-      "https://www.googleapis.com/auth/servicecontrol",
-      "https://www.googleapis.com/auth/service.management.readonly",
-      "https://www.googleapis.com/auth/trace.append",
-    ]
+#    oauth_scopes = [
+#      "https://www.googleapis.com/auth/compute",
+#      "https://www.googleapis.com/auth/devstorage.read_only",
+#      "https://www.googleapis.com/auth/logging.write",
+#      "https://www.googleapis.com/auth/monitoring",
+#      "https://www.googleapis.com/auth/servicecontrol",
+#      "https://www.googleapis.com/auth/service.management.readonly",
+#      "https://www.googleapis.com/auth/trace.append",
+#    ]
+#  }
+
+
+  node_pool {
+    name       = "more-pool"
+    node_count = "3"
+    node_config {
+      machine_type = "n1-standard-2"
+      disk_size_gb = "35"
+    }
   }
+
+
+
 }
 
 
