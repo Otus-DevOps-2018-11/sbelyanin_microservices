@@ -1,0 +1,7 @@
+dependencies:
+  - name: ef
+    version: "1.0.0"
+    repository: "file://../ef"
+  - name: kibana
+    version: 2.2.0
+    repository: file://../kibana

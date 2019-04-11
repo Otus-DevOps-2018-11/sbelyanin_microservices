@@ -1,0 +1,8 @@
+---
+name: EFK
+version: 1.0.0
+description: Chart with Elasticsearch(v5.6.4), Fluentd(v2.0.2) and Kibana(v5.4.3)
+maintainers:
+  - name: Sergey Belyanin
+    email: my@mail.com
+appVersion: 1.0
