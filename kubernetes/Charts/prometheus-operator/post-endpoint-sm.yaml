@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: my-release-prometheus-oper-post
+  name: my-release-prometheus-oper-post
+spec:
+  endpoints:
+  - port: "5000"
+  selector:
+    matchLabels:
+      app: reddit
+      component: post
+

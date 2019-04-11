@@ -1,0 +1,9 @@
+dependencies:
+- name: ef
+  repository: file://../ef
+  version: 1.0.0
+- name: kibana
+  repository: file://../kibana
+  version: 2.2.0
+digest: sha256:a7a4995951ee0efcca8170a5eb34126afa2527eefb43e5f966ec0c66e4f0220c
+generated: 2019-04-11T15:43:12.324001555+03:00
